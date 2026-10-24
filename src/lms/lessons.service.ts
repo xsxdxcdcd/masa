@@ -1,0 +1,319 @@
+import { Injectable, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
+import { CourseContentType, DeliveryMode, EnrollmentStatus } from '@prisma/client';
+import { PrismaService } from '../prisma/prisma.service';
+import { GamificationService } from '../gamification/gamification.service';
+import { Classroom, resolveClassroom } from '../common/classroom';
+
+@Injectable()
+export class LessonsService {
+  constructor(private prisma: PrismaService, private gamification: GamificationService) {}
+
+  async syllabus(courseId: string) {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      include: {
+        modules: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            outcomes: { orderBy: { createdAt: 'asc' } },
+            quizzes: {
+              where: { isPublished: true },
+              orderBy: { orderIndex: 'asc' },
+              select: { id: true, titleAr: true, titleEn: true, orderIndex: true, passScore: true, _count: { select: { questions: true } } },
+            },
+          },
+        },
+        chapters: {
+          orderBy: { orderIndex: 'asc' },
+          include: {
+            modules: {
+              orderBy: { orderIndex: 'asc' },
+              include: {
+                outcomes: { orderBy: { createdAt: 'asc' } },
+                quizzes: {
+                  where: { isPublished: true },
+                  orderBy: { orderIndex: 'asc' },
+                  select: { id: true, titleAr: true, titleEn: true, orderIndex: true, passScore: true, _count: { select: { questions: true } } },
+                },
+              },
+            },
+          },
+        },
+        },
+    });
+    if (!course) throw new NotFoundException('Course not found');
+    return course;
+  }
+
+  async listCourseModules(courseId: string) {
+    return this.prisma.module.findMany({
+      where: { courseId },
+      orderBy: { orderIndex: 'asc' },
+      include: { outcomes: { orderBy: { createdAt: 'asc' } } },
+    });
+  }
+
+  /**
+   * The work a student still owes before a module can count as complete.
+   *
+   * A module can carry assignments (`CourseTask`, scoped to the opening) and
+   * quizzes (`Quiz`, scoped to the course). `markComplete` used to record the
+   * module unconditionally, so claiming a lesson — and the `course_complete`
+   * points that go with 100% — never required submitting the assignment or
+   * passing the quiz. The gate belongs here rather than in the UI: a disabled
+   * button is cosmetic, and this is the only writer of `LessonProgress`.
+   */
+  private async moduleRequirements(
+    courseId: string,
+    enrollment: { id: string; openingId: string | null },
+  ): Promise<Map<string, { pendingTasks: number; failedQuizzes: number }>> {
+    // Assignments belong to an opening. A legacy `openingId = NULL` row cannot
+    // be scoped to one, so counting every opening's tasks would invent work
+    // this student was never given; there is nothing to check in that case.
+    const tasks = enrollment.openingId
+      ? await this.prisma.courseTask.findMany({
+          where: { moduleId: { not: null }, openingId: enrollment.openingId },
+          select: {
+            moduleId: true,
+            submissions: { where: { enrollmentId: enrollment.id }, select: { id: true } },
+          },
+        })
+      : [];
+
+    const quizzes = await this.prisma.quiz.findMany({
+      where: { moduleId: { not: null }, courseId, isPublished: true },
+      select: {
+        moduleId: true,
+        attempts: { where: { enrollmentId: enrollment.id }, select: { passed: true } },
+      },
+    });
+
+    const map = new Map<string, { pendingTasks: number; failedQuizzes: number }>();
+    const slot = (moduleId: string) => {
+      let entry = map.get(moduleId);
+      if (!entry) {
+        entry = { pendingTasks: 0, failedQuizzes: 0 };
+        map.set(moduleId, entry);
+      }
+      return entry;
+    };
+
+    for (const t of tasks) {
+      if (!t.submissions.length) slot(t.moduleId as string).pendingTasks += 1;
+    }
+    for (const q of quizzes) {
+      if (!q.attempts.some((a: { passed: boolean }) => a.passed)) slot(q.moduleId as string).failedQuizzes += 1;
+    }
+    return map;
+  }
+
+  async courseProgress(courseId: string, studentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { studentId_courseId: { studentId, courseId } },
+    });
+    if (!enrollment) throw new ForbiddenException('You are not enrolled in this course');
+
+    // The classroom link follows the same rule as /enrollments/my: an approved
+    // student in an online batch gets the room, a PENDING applicant or a
+    // REVOKED one does not. Read only, never selected into the module list.
+    // The content type travels with it so the player can lead with the meeting
+    // schedule on a live course instead of an empty video area.
+    const classroom = await this.classroomFor(enrollment);
+
+    const modules = await this.listCourseModules(courseId);
+    const progress = await this.prisma.lessonProgress.findMany({
+      where: { enrollmentId: enrollment.id },
+      select: { moduleId: true, completedAt: true },
+    });
+    const completedMap = new Map(progress.map((p) => [p.moduleId, p.completedAt]));
+    const requirements = await this.moduleRequirements(courseId, enrollment);
+
+    const list = modules.map((m: any) => {
+      const owed = requirements.get(m.id) ?? { pendingTasks: 0, failedQuizzes: 0 };
+      return {
+        id: m.id,
+        titleAr: m.titleAr,
+        titleEn: m.titleEn,
+        descriptionAr: m.descriptionAr,
+        descriptionEn: m.descriptionEn,
+        videoUrl: m.videoUrl,
+        orderIndex: m.orderIndex,
+        isFree: m.isFree,
+        durationMinutes: m.durationMinutes,
+        files: m.files ?? null,
+        links: m.links ?? null,
+        chapterId: m.chapterId,
+        outcomes: m.outcomes,
+        completed: completedMap.has(m.id),
+        completedAt: completedMap.get(m.id) ?? null,
+        // Surfaced so the player can explain the block instead of showing a
+        // dead button, and so a client cannot pretend the gate does not exist.
+        pendingTasks: owed.pendingTasks,
+        failedQuizzes: owed.failedQuizzes,
+        canComplete: owed.pendingTasks === 0 && owed.failedQuizzes === 0,
+      };
+    });
+
+    const completedCount = list.filter((m) => m.completed).length;
+    const percent = modules.length === 0 ? 0 : Math.round((completedCount / modules.length) * 100);
+    return {
+      enrollmentId: enrollment.id,
+      openingId: enrollment.openingId,
+      total: modules.length,
+      completed: completedCount,
+      percent,
+      modules: list,
+      ...classroom,
+    };
+  }
+
+  /**
+   * Online-classroom details for the player: the batch's room plus its schedule
+   * of live sessions. Empty unless the enrollment is APPROVED and the batch is
+   * ONLINE, so neither the join button nor a session link can appear to
+   * somebody who has not been admitted. See `resolveClassroom` for the rule.
+   *
+   * The course's content type rides along on the same query. It is NOT part of
+   * the gate -- it only tells the player which surface to lead with -- and it
+   * defaults to LIVE, which is what a course created before the field was.
+   */
+  private async classroomFor(enrollment: {
+    status: string;
+    openingId: string | null;
+    courseId: string;
+  }): Promise<Classroom & { contentType: CourseContentType }> {
+    if (enrollment.status !== EnrollmentStatus.APPROVED || !enrollment.openingId) {
+      // No room and no schedule for somebody who is not admitted, but the format
+      // is still read: a pending applicant opening a pre-recorded course should
+      // see that it is videos rather than an empty "meeting schedule".
+      return {
+        deliveryMode: null,
+        meetLink: null,
+        liveSessions: [],
+        contentType: await this.contentTypeOf(enrollment.courseId),
+      };
+    }
+    const opening = await this.prisma.courseOpening.findUnique({
+      where: { id: enrollment.openingId },
+      select: {
+        deliveryMode: true,
+        meetLink: true,
+        course: { select: { contentType: true } },
+        liveSessions: {
+          orderBy: { scheduledAt: 'asc' },
+          select: {
+            id: true,
+            titleAr: true,
+            titleEn: true,
+            scheduledAt: true,
+            durationMinutes: true,
+            meetLink: true,
+          },
+        },
+      },
+    });
+    if (!opening) {
+      return {
+        deliveryMode: null,
+        meetLink: null,
+        liveSessions: [],
+        contentType: await this.contentTypeOf(enrollment.courseId),
+      };
+    }
+
+    return {
+      ...resolveClassroom(enrollment.status, opening, opening.liveSessions),
+      contentType: opening.course?.contentType ?? CourseContentType.LIVE,
+    };
+  }
+
+  /** The teaching format, defaulting to LIVE for a course row that predates it. */
+  private async contentTypeOf(courseId: string): Promise<CourseContentType> {
+    const course = await this.prisma.course.findUnique({
+      where: { id: courseId },
+      select: { contentType: true },
+    });
+    return course?.contentType ?? CourseContentType.LIVE;
+  }
+
+  async myNotes(courseId: string, studentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({
+      where: { studentId_courseId: { studentId, courseId } },
+    });
+    if (!enrollment) throw new ForbiddenException('You are not enrolled in this course');
+    const notes = await this.prisma.lessonNote.findMany({
+      where: { enrollmentId: enrollment.id },
+      select: { moduleId: true, content: true, updatedAt: true },
+    });
+    return { enrollmentId: enrollment.id, notes };
+  }
+
+  async saveNote(moduleId: string, content: string, studentId: string) {
+    const module = await this.prisma.module.findUnique({
+      where: { id: moduleId },
+      select: { courseId: true },
+    });
+    if (!module) throw new NotFoundException('Module not found');
+    const enrollment = await this.prisma.enrollment.findFirst({
+      where: { studentId, courseId: module.courseId },
+      select: { id: true },
+    });
+    if (!enrollment) throw new ForbiddenException('You are not enrolled in this course');
+    await this.prisma.lessonNote.upsert({
+      where: { enrollmentId_moduleId: { enrollmentId: enrollment.id, moduleId } },
+      update: { content },
+      create: { enrollmentId: enrollment.id, moduleId, content },
+    });
+    return { savedAt: new Date() };
+  }
+
+  async markComplete(enrollmentId: string, moduleId: string, studentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({ where: { id: enrollmentId } });
+    if (!enrollment || enrollment.studentId !== studentId) throw new ForbiddenException('Not your enrollment');
+
+    const module = await this.prisma.module.findUnique({ where: { id: moduleId } });
+    if (!module || module.courseId !== enrollment.courseId) throw new NotFoundException('Module not found in this course');
+
+    const owed = (await this.moduleRequirements(enrollment.courseId, enrollment)).get(moduleId);
+    if (owed && (owed.pendingTasks > 0 || owed.failedQuizzes > 0)) {
+      throw new ConflictException({
+        message: 'Finish the required work for this lesson first',
+        code: 'LESSON_REQUIREMENTS_PENDING',
+        pendingTasks: owed.pendingTasks,
+        failedQuizzes: owed.failedQuizzes,
+      });
+    }
+
+    const before = await this.courseProgress(enrollment.courseId, studentId);
+    const firstCompletion = !before.modules.some((m: any) => m.id === moduleId && m.completed);
+
+    await this.prisma.lessonProgress.upsert({
+      where: { enrollmentId_moduleId: { enrollmentId, moduleId } },
+      update: { completedAt: new Date() },
+      create: { enrollmentId, moduleId },
+    });
+
+    // Points belong to the transition, not to the request. Re-posting the same
+    // completion used to hand out `lesson_complete` again on every call, and
+    // `course_complete` again on every call made once the course sat at 100%,
+    // so a student could farm an unbounded score and sit on the leaderboard.
+    if (firstCompletion) {
+      try { await this.gamification.addPoints(studentId, 'lesson_complete'); } catch {}
+    }
+
+    const progress = await this.courseProgress(enrollment.courseId, studentId);
+    const nowComplete = progress.total > 0 && progress.completed >= progress.total;
+    const wasComplete = before.total > 0 && before.completed >= before.total;
+    if (nowComplete && !wasComplete) {
+      try { await this.gamification.addPoints(studentId, 'course_complete'); } catch {}
+    }
+    return progress;
+  }
+
+  async markIncomplete(enrollmentId: string, moduleId: string, studentId: string) {
+    const enrollment = await this.prisma.enrollment.findUnique({ where: { id: enrollmentId } });
+    if (!enrollment || enrollment.studentId !== studentId) throw new ForbiddenException('Not your enrollment');
+    await this.prisma.lessonProgress.deleteMany({ where: { enrollmentId, moduleId } });
+    return this.courseProgress(enrollment.courseId, studentId);
+  }
+}

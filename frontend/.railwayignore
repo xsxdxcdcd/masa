@@ -1,0 +1,15 @@
+# See the root .railwayignore. .next alone is 550 MB of local build cache and
+# node_modules another 557 MB; both are rebuilt inside the Docker image.
+node_modules
+.next
+out
+build
+coverage
+
+.git
+.gitignore
+
+.env
+.env.*
+*.log
+*.tsbuildinfo

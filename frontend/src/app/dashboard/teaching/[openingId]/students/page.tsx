@@ -1,0 +1,244 @@
+"use client";
+
+import { useMemo, useState } from 'react';
+import Link from 'next/link';
+import { useParams } from 'next/navigation';
+import ProtectedRoute from '@/components/ProtectedRoute';
+import { useFetchData } from '@/lib/useFetchData';
+import { useI18n } from '@/lib/i18n-context';
+import { PageHeader, Badge, EmptyState, type Tone } from '../../components';
+import {
+    ArrowLeft, Search, Users, Loader, UserCheck, TrendingUp, GraduationCap,
+} from 'lucide-react';
+
+interface MyOpening {
+    id: string;
+    nameAr?: string | null;
+    nameEn?: string | null;
+    status: string;
+    course: { id: string; titleAr?: string | null; titleEn?: string | null };
+}
+
+interface Assessment {
+    id: string;
+    maxScore: number;
+}
+
+interface EnrollmentRow {
+    id: string;
+    status: string;
+    createdAt: string;
+    student: { id: string; email: string; name?: string | null };
+    grades: { assessmentId: string; score: number }[];
+}
+
+interface RosterData {
+    assessments?: Assessment[] | null;
+    enrollments?: EnrollmentRow[] | null;
+}
+
+const statusTone: Record<string, Tone> = {
+    APPROVED: 'green',
+    PENDING: 'amber',
+    REJECTED: 'red',
+    RESERVED: 'blue',
+};
+
+const statusLabelAr: Record<string, string> = {
+    APPROVED: 'مقبول',
+    PENDING: 'قيد المراجعة',
+    REJECTED: 'مرفوض',
+    RESERVED: 'محجوز',
+};
+
+const statusLabelEn: Record<string, string> = {
+    APPROVED: 'Approved',
+    PENDING: 'Pending',
+    REJECTED: 'Rejected',
+    RESERVED: 'Reserved',
+};
+
+const avatarTones = [
+    'bg-brand-gold/20 text-brand-gold-light',
+    'bg-emerald-500/20 text-emerald-400',
+    'bg-sky-500/20 text-sky-400',
+    'bg-violet-500/20 text-violet-400',
+    'bg-rose-500/20 text-rose-400',
+    'bg-cyan-500/20 text-cyan-400',
+];
+
+const avatarToneFor = (seed: string) => {
+    let h = 0;
+    for (let i = 0; i < seed.length; i++) h = (h * 31 + seed.charCodeAt(i)) >>> 0;
+    return avatarTones[h % avatarTones.length];
+};
+
+export default function OpeningStudentsPage() {
+    const { openingId } = useParams();
+    const oid = String(openingId || '');
+    const { pick, locale } = useI18n();
+    const isAr = locale === 'ar';
+    const [search, setSearch] = useState('');
+
+    const { data: openings } = useFetchData<MyOpening[]>('/openings/mine');
+    const { data: roster, loading, error } = useFetchData<RosterData>(oid ? `/openings/${oid}/roster` : null);
+
+    const opening = (openings || []).find((o) => o.id === oid);
+
+    const rows = useMemo(() => {
+        const enrollments = roster?.enrollments || [];
+        const assessments = roster?.assessments || [];
+        const totalMax = assessments.reduce((s, a) => s + (a.maxScore ?? 0), 0);
+        const q = search.trim().toLowerCase();
+        return enrollments
+            .filter((e) => !q || e.student.email.toLowerCase().includes(q))
+            .map((e) => {
+                if (!totalMax) return { ...e, progress: null as number | null };
+                const earned = assessments.reduce((sum, a) => {
+                    const g = e.grades.find((gr) => gr.assessmentId === a.id);
+                    return sum + (g ? g.score : 0);
+                }, 0);
+                return { ...e, progress: Math.min(100, Math.round((earned / totalMax) * 100)) };
+            });
+    }, [roster, search]);
+
+    const approvedCount = rows.filter((r) => r.status === 'APPROVED').length;
+    const progressValues = rows.map((r) => r.progress).filter((p): p is number => p != null);
+    const avgProgress = progressValues.length
+        ? Math.round(progressValues.reduce((s, p) => s + p, 0) / progressValues.length)
+        : null;
+
+    const fmtDate = (d?: string | null) =>
+        d ? new Date(d).toLocaleDateString(isAr ? 'ar-SA' : 'en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : '—';
+
+    return (
+        <ProtectedRoute allowedRoles={['INSTRUCTOR']}>
+            <div className="min-h-screen bg-gray-50 dark:bg-brand-navy-dark animate-fade-in space-y-6 p-6 lg:p-8">
+                <Link
+                    href={`/dashboard/teaching/${oid}`}
+                    className="inline-flex items-center gap-1.5 text-sm font-bold text-gray-400 hover:text-white transition"
+                >
+                    <ArrowLeft size={16} /> {isAr ? 'العودة لمساحة التدريس' : 'Back to Workspace'}
+                </Link>
+
+                <PageHeader
+                    title={isAr ? 'طلاب الدفعة' : 'Opening Students'}
+                    subtitle={
+                        opening
+                            ? `${pick(opening, 'name') || (isAr ? 'دفعة بدون عنوان' : 'Untitled Batch')} · ${pick(opening.course, 'title')}`
+                            : undefined
+                    }
+                    actions={<Badge tone="gold"><Users size={13} /> {(roster?.enrollments || []).length} {isAr ? 'طالب' : 'Students'}</Badge>}
+                />
+
+                {error && (
+                    <div className="p-4 bg-red-500/10 border border-red-500/20 text-red-400 rounded-xl">{error}</div>
+                )}
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                    {[
+                        { icon: Users, label: isAr ? 'إجمالي الطلاب' : 'Total Students', value: (roster?.enrollments || []).length, color: 'text-brand-navy-light', bg: 'bg-brand-navy-light/10' },
+                        { icon: UserCheck, label: isAr ? 'مقبولون' : 'Approved', value: approvedCount, color: 'text-emerald-400', bg: 'bg-emerald-500/10' },
+                        { icon: TrendingUp, label: isAr ? 'متوسط التقدم' : 'Avg Progress', value: avgProgress != null ? `${avgProgress}%` : '—', color: 'text-brand-gold-light', bg: 'bg-brand-gold/10' },
+                    ].map((s, i) => (
+                        <div key={i} className="bg-brand-navy-dark border border-white/5 rounded-2xl p-5 hover:border-white/10 transition-all">
+                            <div className="flex items-center gap-3 mb-3">
+                                <div className={`w-10 h-10 rounded-xl ${s.bg} ${s.color} flex items-center justify-center`}>
+                                    <s.icon size={20} />
+                                </div>
+                                <p className="text-xs font-bold text-gray-400">{s.label}</p>
+                            </div>
+                            <p className="text-3xl font-black text-white">{s.value}</p>
+                        </div>
+                    ))}
+                </div>
+
+                <section className="bg-brand-navy-dark border border-white/5 rounded-2xl overflow-hidden">
+                    <div className="flex flex-wrap items-center justify-between gap-4 p-5 border-b border-white/5">
+                        <div>
+                            <h3 className="text-lg font-black text-white flex items-center gap-2">
+                                <GraduationCap size={18} className="text-brand-gold-light" />
+                                {isAr ? 'قائمة الطلاب' : 'Student Roster'}
+                            </h3>
+                            <p className="text-sm text-gray-400 mt-0.5">
+                                {isAr ? 'حالة القيد وتاريخ الانضمام ونسبة التقدم لكل طالب' : 'Enrollment status, join date and progress per student'}
+                            </p>
+                        </div>
+                        <div className="relative w-full sm:w-72">
+                            <Search size={16} className="absolute start-3.5 top-1/2 -translate-y-1/2 text-gray-500" />
+                            <input
+                                value={search}
+                                onChange={(e) => setSearch(e.target.value)}
+                                placeholder={isAr ? 'ابحث بالبريد الإلكتروني...' : 'Search by email...'}
+                                className="w-full ps-10 pe-4 py-2.5 bg-brand-navy-dark border border-white/10 rounded-xl text-sm text-white placeholder:text-gray-500 focus:ring-2 focus:ring-brand-gold/40 focus:border-brand-gold/40 outline-none transition"
+                            />
+                        </div>
+                    </div>
+
+                    <div className="overflow-x-auto">
+                        <table className="w-full text-sm min-w-[720px]">
+                            <thead>
+                                <tr className="text-xs uppercase tracking-wide text-gray-500 bg-white/[0.03] border-b border-white/5">
+                                    <th className="px-6 py-4 text-start font-bold">{isAr ? 'البريد الإلكتروني' : 'Student Email'}</th>
+                                    <th className="px-6 py-4 text-start font-bold">{isAr ? 'الحالة' : 'Status'}</th>
+                                    <th className="px-6 py-4 text-start font-bold">{isAr ? 'تاريخ الانضمام' : 'Join Date'}</th>
+                                    <th className="px-6 py-4 text-start font-bold">{isAr ? 'التقدم' : 'Progress'}</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                {loading ? (
+                                    <tr>
+                                        <td colSpan={99} className="p-12 text-center text-gray-400">
+                                            <Loader className="animate-spin mx-auto mb-3" size={24} />
+                                            {isAr ? 'جاري التحميل...' : 'Loading...'}
+                                        </td>
+                                    </tr>
+                                ) : rows.length === 0 ? (
+                                    <EmptyState
+                                        icon={GraduationCap}
+                                        title={search.trim() ? (isAr ? 'لا يوجد طالب مطابق للبحث' : 'No students match your search') : (isAr ? 'لا يوجد طلاب مسجلون في هذه الدفعة بعد' : 'No students enrolled in this opening yet')}
+                                    />
+                                ) : (
+                                    rows.map((r) => (
+                                        <tr key={r.id} className="border-b border-white/5 last:border-0 hover:bg-white/[0.02] transition-colors">
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-3">
+                                                    <div className={`w-9 h-9 rounded-full ${avatarToneFor(r.student.email)} flex items-center justify-center font-black text-sm shrink-0`}>
+                                                        {r.student.email.charAt(0).toUpperCase()}
+                                                    </div>
+                                                    <div className="min-w-0">
+                                                        <p className="font-bold text-white truncate">{r.student.email}</p>
+                                                        {r.student.name && <p className="text-xs text-gray-500 truncate">{r.student.name}</p>}
+                                                    </div>
+                                                </div>
+                                            </td>
+                                            <td className="px-6 py-4">
+                                                <Badge tone={statusTone[r.status] ?? 'gray'}>
+                                                    {isAr ? (statusLabelAr[r.status] ?? r.status) : (statusLabelEn[r.status] ?? r.status)}
+                                                </Badge>
+                                            </td>
+                                            <td className="px-6 py-4 text-gray-300 font-semibold whitespace-nowrap">{fmtDate(r.createdAt)}</td>
+                                            <td className="px-6 py-4">
+                                                <div className="flex items-center gap-2.5 min-w-[150px]">
+                                                    <div className="flex-1 h-1.5 bg-white/10 rounded-full overflow-hidden">
+                                                        <div
+                                                            className="h-full bg-gradient-to-r from-brand-gold to-brand-gold-light rounded-full transition-all duration-500"
+                                                            style={{ width: `${r.progress ?? 0}%` }}
+                                                        />
+                                                    </div>
+                                                    <span className={`text-xs font-black w-10 text-end ${r.progress != null ? 'text-white' : 'text-gray-600'}`}>
+                                                        {r.progress != null ? `${r.progress}%` : '—'}
+                                                    </span>
+                                                </div>
+                                            </td>
+                                        </tr>
+                                    ))
+                                )}
+                            </tbody>
+                        </table>
+                    </div>
+                </section>
+            </div>
+        </ProtectedRoute>
+    );
+}

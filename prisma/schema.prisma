@@ -1,0 +1,1633 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+enum Role {
+  STUDENT
+  INSTRUCTOR
+  COURSE_MANAGER
+  FINANCE
+  ADMIN
+}
+
+enum EnrollmentStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  RESERVED
+  REVOKED
+}
+
+enum CourseOpeningStatus {
+  DRAFT
+  ANNOUNCEMENT
+  OPEN
+  STARTED
+  ENDED
+}
+
+enum CertificateStatus {
+  VALID
+  REVOKED
+  EXPIRED
+}
+
+// How a batch is actually taught. A batch that meets online carries the
+// classroom link (`meetLink`) that enrolled students join from, so the two are
+// one fact: a link on an IN_PERSON batch would be a dead or misleading button.
+enum DeliveryMode {
+  IN_PERSON
+  ONLINE
+}
+
+enum ApplicationStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+enum CourseLevel {
+  BEGINNER
+  INTERMEDIATE
+  ADVANCED
+  ALL_LEVELS
+}
+
+/// Whether a course is taught live (Meet sessions on a schedule) or delivered
+/// as pre-recorded videos. Set once when the course is created; the platform
+/// presents each of the two differently, so the two are not interchangeable.
+enum CourseContentType {
+  LIVE
+  RECORDED
+}
+
+enum TicketStatus {
+  OPEN
+  IN_PROGRESS
+  CLOSED
+}
+
+enum PaymentStatus {
+  PENDING
+  PAID
+  FAILED
+  REFUNDED
+  CANCELLED
+  REJECTED
+}
+
+enum CouponType {
+  PERCENT
+  AMOUNT
+}
+
+// Whether `maxUses` caps the whole coupon or each targeted course separately.
+enum CouponMaxScope {
+  TOTAL
+  PER_COURSE
+}
+
+// Student-initiated refund lifecycle. A request is created PENDING by the
+// student and only ever leaves that state through a finance/admin decision.
+enum RefundStatus {
+  PENDING
+  APPROVED
+  REJECTED
+}
+
+// Where the money is sent back. WALLET = e-wallet (STC Pay, etc.),
+// BANK = bank transfer. The free-text account fields carry whichever the
+// student chose.
+enum RefundMethod {
+  WALLET
+  BANK
+}
+
+enum QuizQuestionType {
+  SINGLE_CHOICE
+  MULTIPLE_CHOICE
+  TRUE_FALSE
+}
+
+enum ReferralStatus {
+  PENDING
+  SIGNED_UP
+  REWARDED
+  EXPIRED
+}
+
+model User {
+  id                 String    @id @default(uuid())
+  email              String    @unique
+  passwordHash       String
+  role               Role      @default(STUDENT)
+  isActive           Boolean   @default(true)
+  mustChangePassword Boolean   @default(false) // Force the user to set a new password on next login
+  language           String    @default("en")
+  emailVerifiedAt    DateTime?
+  twoFactorSecret    String?
+  twoFactorEnabled   Boolean   @default(false)
+  // Bumped whenever every access token for this user must stop working at once:
+  // logout, password change, and a detected refresh-token replay. Access tokens
+  // carry this value as `tv`; the JWT strategy rejects a token whose `tv` no
+  // longer matches the row. Without it a stateless access token stayed valid
+  // until it expired, so "logout" only ever killed the refresh token.
+  tokenVersion       Int       @default(0)
+  metadata           Json? // Storing extensible metadata
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
+
+  // Relations
+  coursesTaught  Course[]        @relation("InstructorCourses")
+  openingsTaught CourseOpening[] @relation("OpeningInstructors")
+  enrollments    Enrollment[]
+  certificates   Certificate[]
+
+  // Certificates this staff member released on paper. Named separately from
+  // `certificates`, which is the student side of the same table.
+  printedCertificates       Certificate[]            @relation("CertificatePrintedBy")
+  auditLogs                 AuditLog[]
+  visitSessions             VisitSession[]
+  operationsAccess          OperationsAllowlistEntry[] @relation("OperationsAllowlisted")
+  operationsGranted         OperationsAllowlistEntry[] @relation("OperationsGrantedBy")
+  operationsSettingsChanges OperationsSetting[]     @relation("OperationsChangedBy")
+  applications              InstructorApplication[]
+  tickets                   SupportTicket[]
+  sentMessages              Message[]                @relation("SentMessages")
+  receivedMessages          Message[]                @relation("ReceivedMessages")
+  openingRequests           OpeningRequest[]
+  closeRequests             CloseRequest[]
+  courseSuggestions         CourseSuggestion[]
+  refreshTokens             RefreshToken[]
+  passwordResetTokens       PasswordResetToken[]
+  emailVerificationTokens   EmailVerificationToken[]
+  notifications             Notification[]
+  payments                  Payment[]
+  wishlist                  Wishlist[]
+  reviews                   CourseReview[]
+  referralsMade             Referral[]               @relation("Referrer")
+  couponRedemptions         CouponRedemption[]
+  blogPosts                 BlogPost[]
+  announcements             Announcement[]
+  chatMemberships           ChatRoomMember[]
+  chatMessages              ChatMessage[]
+  directChatsAsStudent      DirectChat[]             @relation("DirectChatStudent")
+  directChatsAsInstructor   DirectChat[]             @relation("DirectChatInstructor")
+  directMessages            DirectMessage[]
+  discussionPosts           DiscussionPost[]
+  discussionReplies         DiscussionReply[]
+  instructorRatingsReceived InstructorRating[]       @relation("InstructorRatingReceived")
+  instructorRatingsGiven    InstructorRating[]       @relation("InstructorRatingGiven")
+  points                    UserPoints?
+  pointLogs                 PointLog[]
+  learningPathsCreated      LearningPath[]
+  learningSessions          LearningSession[]
+  peerReviewsGiven          PeerReview[]
+  announcementBoardPosts    AnnouncementBoard[]
+  refundRequests            RefundRequest[]          @relation("RefundRequests")
+  reviewedRefundRequests    RefundRequest[]          @relation("RefundReviewedBy")
+}
+
+model Course {
+  id                String      @id @default(uuid())
+  titleAr           String
+  titleEn           String
+  excerptAr         String?
+  excerptEn         String?
+  descriptionAr     String?
+  descriptionEn     String?
+  categoryAr        String?
+  categoryEn        String?
+  level             CourseLevel @default(BEGINNER)
+  language          String?
+  hoursOfContent    Int?
+  syllabusAr        String?
+  syllabusEn        String?
+  durationAr        String?
+  durationEn        String?
+  coverImageUrl     String?
+  introVideoUrl     String?
+  videoFileUrl      String?
+  certificateIssued Boolean     @default(false)
+
+  // What the student actually receives: live meetings on Meet, or pre-recorded
+  // videos. This is the teaching format of the course itself and it decides
+  // which of the two surfaces the course is presented through -- a LIVE course
+  // has a meeting schedule and no lesson videos, a RECORDED one the reverse.
+  // It is separate from CourseOpening.deliveryMode, which only answers where the
+  // batch meets (online or in person).
+  contentType CourseContentType @default(LIVE)
+
+  // Feature flags (shown as badges / included-items on the course page)
+  quizzesIncluded       Boolean @default(false)
+  projectsIncluded      Boolean @default(false)
+  assignmentsIncluded   Boolean @default(false)
+  liveSessionsIncluded  Boolean @default(false)
+  downloadableResources Boolean @default(false)
+  lifetimeAccess        Boolean @default(false)
+  communityAccess       Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  instructorId String
+  instructor   User   @relation("InstructorCourses", fields: [instructorId], references: [id], onDelete: Restrict)
+
+  openings            CourseOpening[]
+  modules             Module[]
+  chapters            Chapter[]
+  enrollments         Enrollment[]
+  certificates        Certificate[]
+  objectives          CourseObjective[]
+  prerequisites       CoursePrerequisite[]
+  audiences           CourseAudience[]
+  faqs                CourseFaq[]
+  gallery             CourseImage[]
+  messages            Message[]
+  openingRequests     OpeningRequest[]
+  coupons             CouponCourse[]
+  couponRedemptions   CouponRedemption[]
+  wishlist            Wishlist[]
+  reviews             CourseReview[]
+  quizzes             Quiz[]
+  directChats         DirectChat[]
+  instructorRatings   InstructorRating[]
+  learningPathCourses LearningPathCourse[]
+  learningSessions    LearningSession[]
+  refundRequests      RefundRequest[]
+}
+
+model CourseOpening {
+  id                  String              @id @default(uuid())
+  nameAr              String?
+  nameEn              String?
+  // Scheduling of this opening (this batch/run of the course)
+  startDate           DateTime?
+  endDate             DateTime?
+  enrollmentDeadline  DateTime?
+  // Days after `startDate` during which a student may request a refund for
+  // this batch. NULL = refunds are disabled for the opening. Set by staff
+  // when they open/schedule the batch.
+  refundWindowDays    Int?
+  // Fees for this opening (each opening can have its own price/discount)
+  price               Decimal             @db.Decimal(10, 2)
+  priceOld            Decimal?            @db.Decimal(10, 2)
+  currency            String              @default("SAR")
+  maxStudents         Int?
+  // Number of seats currently held by enrollments that are not REJECTED/REVOKED.
+  // Incremented atomically when a seat is claimed (registration/reservation/
+  // payment confirmation) and decremented when an enrollment is rejected/revoked.
+  seatsTaken          Int                 @default(0)
+  isPublished         Boolean             @default(false)
+  status              CourseOpeningStatus @default(DRAFT)
+  // Whether this batch is taught in person or online, plus the classroom link
+  // for the online case. `meetLink` is staff-entered (there is no Meet API
+  // integration) and is served ONLY to students whose enrollment is APPROVED —
+  // `/courses` and `/courses/:id` are public and must never carry it.
+  deliveryMode        DeliveryMode        @default(IN_PERSON)
+  meetLink            String?
+  // The announcement/banner window that shows the course before it is open for enrollment.
+  announcementStartAt DateTime?
+  announcementEndAt   DateTime?
+  createdAt           DateTime            @default(now())
+  updatedAt           DateTime            @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  // The instructor teaching THIS opening/batch
+  instructorId String
+  instructor   User   @relation("OpeningInstructors", fields: [instructorId], references: [id], onDelete: Restrict)
+
+  enrollments    Enrollment[]
+  assessments    Assessment[]
+  closeRequests  CloseRequest[]
+  tasks          CourseTask[]
+  payments       Payment[]
+  chatRoom       ChatRoom?
+  announcements  Announcement[]
+  calendarEvents CalendarEvent[]
+  refundRequests RefundRequest[]
+  liveSessions   LiveSession[]
+}
+
+model CourseObjective {
+  id          String   @id @default(uuid())
+  objectiveAr String
+  objectiveEn String
+  orderIndex  Int      @default(0)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model CoursePrerequisite {
+  id             String   @id @default(uuid())
+  prerequisiteAr String
+  prerequisiteEn String
+  orderIndex     Int      @default(0)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model CourseAudience {
+  id         String   @id @default(uuid())
+  audienceAr String
+  audienceEn String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model CourseFaq {
+  id         String   @id @default(uuid())
+  questionAr String
+  questionEn String
+  answerAr   String
+  answerEn   String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model CourseImage {
+  id         String   @id @default(uuid())
+  url        String
+  altAr      String?
+  altEn      String?
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+}
+
+model Chapter {
+  id         String   @id @default(uuid())
+  titleAr    String
+  titleEn    String
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  modules Module[]
+}
+
+model Module {
+  id            String   @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String?
+  descriptionEn String?
+  videoUrl      String?
+  orderIndex    Int
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  // When true this lesson is available as a free preview to un-enrolled guests.
+  isFree          Boolean @default(false)
+  // Approximate lesson length in minutes, shown in the syllabus/player.
+  durationMinutes Int?
+
+  // Lecture materials (files + links shown inside the lecture, independent of tasks)
+  files Json? // Array of { url: string; nameAr?: string; nameEn?: string }
+  links Json? // Array of { url: string; labelAr?: string; labelEn?: string }
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  // Optional grouping: a lesson belongs to a chapter of the course syllabus.
+  chapterId String?
+  chapter   Chapter? @relation(fields: [chapterId], references: [id], onDelete: SetNull)
+
+  outcomes         LearningOutcome[]
+  progress         LessonProgress[]
+  quizzes          Quiz[]
+  tasks            CourseTask[]
+  lessonNotes      LessonNote[]
+  discussions      DiscussionPost[]
+  learningSessions LearningSession[]
+}
+
+model LearningOutcome {
+  id            String   @id @default(uuid())
+  descriptionAr String
+  descriptionEn String
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+}
+
+model Enrollment {
+  id                  String           @id @default(uuid())
+  status              EnrollmentStatus @default(PENDING)
+  receiptFileUrl      String?
+  financeOfficerNotes String?
+  createdAt           DateTime         @default(now())
+  updatedAt           DateTime         @updatedAt
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  // The course being enrolled (one record per student per course).
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  // The opening/batch the student joined (null when it was only a seat reservation
+  // on a course that is not open yet).
+  openingId String?
+  opening   CourseOpening? @relation(fields: [openingId], references: [id], onDelete: SetNull)
+
+  grades         Grade[]
+  submissions    TaskSubmission[]
+  payments       Payment[]
+  lessonProgress LessonProgress[]
+  lessonNotes    LessonNote[]
+  quizAttempts   QuizAttempt[]
+
+  // A student can only enroll in a specific course once (or have one active record)
+  @@unique([studentId, courseId])
+}
+
+// A scheduled live meeting inside one batch.
+//
+// Scoped to the OPENING, not the course: the same course runs several batches,
+// and each batch has its own schedule and its own classroom link. This table
+// used to hang off `Course` with no write path at all, so it was unreachable.
+model LiveSession {
+  id              String   @id @default(uuid())
+  titleAr         String
+  titleEn         String
+  // When the session starts.
+  scheduledAt     DateTime
+  // Minutes rather than an end timestamp, so the UI can render "19:00 - 20:30"
+  // without storing a second date the author has to keep in sync.
+  durationMinutes Int?
+  // A one-off session may use its own room. When NULL the student falls back to
+  // the opening's meetLink, which is how a recurring weekly Meet is handled.
+  meetLink        String?
+  googleMeetData  Json? // reserved for a future Google Meet API integration
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  openingId String
+  opening   CourseOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
+
+  @@index([openingId, scheduledAt])
+}
+
+model Certificate {
+  id                 String            @id @default(uuid())
+  verificationCode   String            @unique @default(uuid())
+  issuingDate        DateTime          @default(now())
+  verificationStatus CertificateStatus @default(VALID)
+  createdAt          DateTime          @default(now())
+  updatedAt          DateTime          @updatedAt
+
+  studentId String
+  student   User   @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  // A paper certificate leaves the system once it is printed, so the handover
+  // has to be auditable: when it happened and which staff member released it.
+  // Both stay null while the certificate only exists on screen.
+  printedAt   DateTime?
+  printedById String?
+  printedBy   User?     @relation("CertificatePrintedBy", fields: [printedById], references: [id], onDelete: SetNull)
+
+  // A certificate can optionally be tied to a specific course
+  courseId String?
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: SetNull)
+}
+
+model AuditLog {
+  id        String   @id @default(uuid())
+  action    String
+  ipAddress String?
+  timestamp DateTime @default(now())
+
+  // Note: we can keep userId optional or required. We make it optional in case of anonymous actions (e.g. brute force attempts logging)
+  userId String?
+  user   User?   @relation(fields: [userId], references: [id], onDelete: SetNull)
+}
+
+/// The operations center's own credentials and settings, in a single row.
+///
+/// WHY A TABLE RATHER THAN MORE ENV VARS
+/// The owner asked to be able to change the password and to choose which admins
+/// may enter the page. Both are state that has to survive a restart and be
+/// editable at runtime, which an environment variable cannot do.
+///
+/// WHY THE KEY IS HASHED
+/// `keyHash` is a bcrypt digest, never the key itself. A leaked database dump
+/// or a read-only SQL mistake must not hand over the operations door. The
+/// original `OPERATIONS_KEY` variable is still honoured as a fallback so an
+/// existing deployment keeps working before anyone sets a password here.
+///
+/// `keyVersion` is what makes a stolen grant worthless. Every operations grant
+/// carries the version it was minted under; changing the password bumps it, and
+/// verification rejects any grant whose version is stale. That is what turns
+/// "log out everywhere" from a hope into a fact.
+model OperationsSetting {
+  id          String   @id @default("singleton")
+  keyHash     String?
+  keyVersion  Int      @default(1)
+  /// Set once the owner has created a password here. Drives the UI's warning
+  /// that the env var is still a second, weaker way in.
+  migratedAt  DateTime?
+  updatedAt   DateTime @updatedAt
+  changedById String?
+  changedBy   User?    @relation("OperationsChangedBy", fields: [changedById], references: [id], onDelete: SetNull)
+}
+
+/// Which admin accounts may open the operations page.
+///
+/// A separate table from `User` because this is not a role: every row is
+/// already an ADMIN, and the point is to narrow that set. Storing user ids
+/// rather than emails means a renamed account keeps its access and a deleted
+/// account loses it through the foreign key.
+model OperationsAllowlistEntry {
+  id          String   @id @default(uuid())
+  userId      String   @unique
+  user        User     @relation("OperationsAllowlisted", fields: [userId], references: [id], onDelete: Cascade)
+  grantedById String?
+  grantedBy   User?    @relation("OperationsGrantedBy", fields: [grantedById], references: [id], onDelete: SetNull)
+  createdAt   DateTime @default(now())
+}
+
+/// One row per browser (a "device" in the operations center's language).
+///
+/// Identity is the `laxalab_vid` cookie the tracker middleware hands out, NOT
+/// the IP and NOT the user: a shared office IP is one row, and the same person
+/// on a phone and a laptop is deliberately two rows, because "which device
+/// signed in" is the question this table exists to answer. `userId` is filled in
+/// opportunistically -- it is null for anonymous traffic, which is most of it.
+model VisitSession {
+  id          String   @id @default(uuid())
+  visitorId   String   @unique
+  userId      String?
+  user        User?    @relation(fields: [userId], references: [id], onDelete: SetNull)
+
+  ipAddress   String?
+  userAgent   String?
+  deviceType  String   @default("desktop")
+  os          String?
+  browser     String?
+  referrer    String?
+  language    String?
+  screen      String?
+  timezone    String?
+
+  isBot        Boolean @default(false)
+  isAuthenticated Boolean @default(false)
+
+  firstSeenAt DateTime @default(now())
+  lastSeenAt  DateTime @default(now())
+  pageViews   Int      @default(0)
+
+  events VisitEvent[]
+
+  // No separate index on visitorId: the @unique above already builds one, and
+  // resolveSession's point read is served by it. A second index here would just
+  // be a duplicate to maintain on a table that grows with every new visitor.
+  @@index([lastSeenAt])
+  @@index([userId])
+  @@index([ipAddress])
+}
+
+/// One row per thing a visitor did: a page they opened, an API call they made,
+/// a named UI action, or a security event.
+///
+/// Deliberately NOT storing request or response bodies. A login body is
+/// `{email, password}` and a payment body carries card details, so writing
+/// bodies here would turn the operations log into the largest unencrypted
+/// credential store on the platform. `meta` exists for the few shapes that are
+/// safe to keep (a resource id, a count), not as a general escape hatch.
+model VisitEvent {
+  id         String       @id @default(uuid())
+  sessionId  String
+  session    VisitSession @relation(fields: [sessionId], references: [id], onDelete: Cascade)
+
+  // page_view | api_call | action | security
+  type       String
+  method     String?
+  path       String?
+  statusCode Int?
+  durationMs Int?
+  label      String?
+  meta       Json?
+
+  createdAt DateTime @default(now())
+
+  @@index([createdAt])
+  @@index([sessionId, createdAt])
+  @@index([type])
+  @@index([label])
+}
+
+model InstructorApplication {
+  id            String            @id @default(uuid())
+  name          String
+  bio           String            @db.Text
+  specialty     String
+  cvFileUrl     String
+  videoIntroUrl String?
+  status        ApplicationStatus @default(PENDING)
+  createdAt     DateTime          @default(now())
+  updatedAt     DateTime          @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model PaymentGateway {
+  id           String @id @default(uuid())
+  name         String @unique
+  instructions String @db.Text
+
+  walletGuideImageUrl String?
+
+  /// Step-by-step screenshots of the transfer, shown to the student before
+  /// they upload their receipt. Array of public media URLs.
+  guideImages   Json?
+  /// Optional walkthrough video of the transfer (public media URL).
+  guideVideoUrl String?
+
+  isActive  Boolean   @default(true)
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @updatedAt
+  payments  Payment[]
+}
+
+model SupportTicket {
+  id         String       @id @default(uuid())
+  subject    String
+  message    String       @db.Text
+  status     TicketStatus @default(OPEN)
+  adminNotes String?      @db.Text
+  createdAt  DateTime     @default(now())
+  updatedAt  DateTime     @updatedAt
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model Assessment {
+  id         String   @id @default(uuid())
+  nameAr     String
+  nameEn     String
+  maxScore   Int      @default(100)
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  openingId String
+  opening   CourseOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
+
+  grades Grade[]
+}
+
+model Grade {
+  id        String   @id @default(uuid())
+  score     Float
+  notes     String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  assessmentId String
+  assessment   Assessment @relation(fields: [assessmentId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, assessmentId])
+}
+
+model Message {
+  id        String    @id @default(uuid())
+  content   String    @db.Text
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  senderId String
+  sender   User   @relation("SentMessages", fields: [senderId], references: [id], onDelete: Cascade)
+
+  recipientId String
+  recipient   User   @relation("ReceivedMessages", fields: [recipientId], references: [id], onDelete: Cascade)
+
+  // Optional course scope: keeps a student↔instructor thread tied to a specific course
+  courseId String?
+  course   Course? @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@index([senderId])
+  @@index([recipientId])
+  @@index([courseId])
+}
+
+// ===== Group chat rooms (one per course opening/batch) =====
+// Membership is mirrored from enrollments (approved/reserved students)
+// plus the opening's instructor and platform admins.
+
+model ChatRoom {
+  id        String   @id @default(uuid())
+  nameAr    String?
+  nameEn    String?
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  openingId String        @unique
+  opening   CourseOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
+
+  members  ChatRoomMember[]
+  messages ChatMessage[]
+
+  @@index([openingId])
+}
+
+model ChatRoomMember {
+  id         String    @id @default(uuid())
+  role       String    @default("STUDENT")
+  lastReadAt DateTime?
+  joinedAt   DateTime  @default(now())
+
+  roomId String
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([roomId, userId])
+  @@index([userId])
+}
+
+model ChatMessage {
+  id             String   @id @default(uuid())
+  content        String?  @db.Text
+  attachmentUrl  String?
+  attachmentType String?
+  createdAt      DateTime @default(now())
+
+  roomId String
+  room   ChatRoom @relation(fields: [roomId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([roomId])
+  @@index([senderId])
+}
+
+// ===== Direct (1:1) student <-> instructor chat with admin/Course-Manager oversight =====
+// A conversation is scoped to one course between a student and the instructor teaching
+// the opening the student is enrolled in. Admins/Course Managers can read, intervene
+// and archive any conversation through the oversight panel.
+
+model DirectChat {
+  id                   String    @id @default(uuid())
+  archivedAt           DateTime?
+  studentLastReadAt    DateTime?
+  instructorLastReadAt DateTime?
+  createdAt            DateTime  @default(now())
+  updatedAt            DateTime  @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  studentId String
+  student   User   @relation("DirectChatStudent", fields: [studentId], references: [id], onDelete: Cascade)
+
+  instructorId String
+  instructor   User   @relation("DirectChatInstructor", fields: [instructorId], references: [id], onDelete: Cascade)
+
+  messages DirectMessage[]
+
+  @@unique([courseId, studentId, instructorId])
+  @@index([studentId])
+  @@index([instructorId])
+}
+
+model DirectMessage {
+  id             String    @id @default(uuid())
+  content        String?   @db.Text
+  attachmentUrl  String?
+  attachmentType String?
+  readAt         DateTime?
+  createdAt      DateTime  @default(now())
+
+  chatId String
+  chat   DirectChat @relation(fields: [chatId], references: [id], onDelete: Cascade)
+
+  senderId String
+  sender   User   @relation(fields: [senderId], references: [id], onDelete: Cascade)
+
+  @@index([chatId])
+  @@index([senderId])
+}
+
+// ===== Instructor Request-based workflow =====
+
+// Instructor asks to open a new opening (batch) for a course; admin/course-manager approves.
+model OpeningRequest {
+  id           String            @id @default(uuid())
+  courseId     String
+  course       Course            @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  instructorId String
+  instructor   User              @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  reason       String?
+  status       ApplicationStatus @default(PENDING)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([instructorId])
+  @@index([courseId])
+  @@index([status])
+}
+
+// Instructor asks to end/close an opening assigned to them; admin/course-manager approves -> ENDED + certificates.
+model CloseRequest {
+  id           String            @id @default(uuid())
+  openingId    String
+  opening      CourseOpening     @relation(fields: [openingId], references: [id], onDelete: Cascade)
+  instructorId String
+  instructor   User              @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  reason       String?
+  status       ApplicationStatus @default(PENDING)
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([instructorId])
+  @@index([openingId])
+  @@index([status])
+}
+
+// Instructor suggests creating a brand-new course; admin/course-manager approves -> creates the Course.
+model CourseSuggestion {
+  id           String            @id @default(uuid())
+  titleAr      String
+  titleEn      String
+  categoryAr   String?
+  categoryEn   String?
+  description  String?
+  instructorId String
+  instructor   User              @relation(fields: [instructorId], references: [id], onDelete: Cascade)
+  status       ApplicationStatus @default(PENDING)
+  reviewNotes  String?
+  reviewedBy   String?
+  reviewedAt   DateTime?
+  createdAt    DateTime          @default(now())
+  updatedAt    DateTime          @updatedAt
+
+  @@index([instructorId])
+  @@index([status])
+}
+
+// A task/assignment created by the instructor (or staff) for an opening.
+model CourseTask {
+  id             String    @id @default(uuid())
+  titleAr        String
+  titleEn        String
+  descriptionAr  String?
+  descriptionEn  String?
+  dueDate        DateTime?
+  maxScore       Int       @default(100)
+  attachmentUrl  String?
+  attachmentType String?
+  links          Json? // Array of { url: string; labelAr?: string; labelEn?: string }
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  openingId String
+  opening   CourseOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
+
+  // Optional grouping: assign this task to a specific lecture (module) of the course
+  moduleId String?
+  module   Module? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  submissions TaskSubmission[]
+  rubric      Rubric?
+
+  @@index([openingId])
+  @@index([moduleId])
+}
+
+// A student's submission for a task (one per enrollment per task).
+model TaskSubmission {
+  id             String   @id @default(uuid())
+  content        String?
+  attachmentUrl  String?
+  // The student's own file is shown to the instructor by name, type and size.
+  // Without these the submission is an opaque `/uploads/tasks/<uuid>.<ext>` and
+  // a teacher cannot tell a PDF report from a ZIP of source files.
+  attachmentName String?
+  attachmentType String?
+  attachmentSize Int?
+  score          Float?
+  notes          String?
+  submittedAt    DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  taskId       String
+  task         CourseTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  peerReviews PeerReview[]
+
+  @@unique([taskId, enrollmentId])
+  @@index([enrollmentId])
+}
+
+// ===== Security & account lifecycle =====
+
+model RefreshToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  revokedAt DateTime?
+  // Every rotation keeps the same family, so a token that is presented after it
+  // was already rotated identifies a replay: we can then revoke the whole
+  // family instead of just rejecting one token. Null on rows minted before this
+  // column existed; those fall back to revoking every token the user owns.
+  familyId  String?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+  @@index([familyId])
+}
+
+model PasswordResetToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+model EmailVerificationToken {
+  id        String    @id @default(uuid())
+  tokenHash String    @unique
+  userId    String
+  user      User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  expiresAt DateTime
+  usedAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  @@index([userId])
+}
+
+// ===== Notifications =====
+
+model Notification {
+  id        String    @id @default(uuid())
+  type      String
+  titleAr   String
+  titleEn   String
+  bodyAr    String?
+  bodyEn    String?
+  data      Json?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId])
+  @@index([userId, readAt])
+}
+
+// ===== Commerce: currencies, payments, coupons =====
+
+model Currency {
+  code      String   @id
+  symbol    String
+  nameAr    String
+  nameEn    String
+  rate      Decimal  @db.Decimal(10, 6)
+  isBase    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+model Payment {
+  id             String            @id @default(uuid())
+  amount         Decimal           @db.Decimal(10, 2)
+  currency       String            @default("SAR")
+  status         PaymentStatus     @default(PENDING)
+  provider       String            @default("MANUAL")
+  providerRef    String?
+  method         String?
+  description    String?
+  couponCode     String?
+  // Stable FK to the coupon that priced this payment (NULL for legacy rows
+  // that only have the free-text couponCode).
+  couponId       String?
+  coupon         Coupon?           @relation(fields: [couponId], references: [id], onDelete: SetNull)
+  redemption     CouponRedemption?
+  refundRequest  RefundRequest?
+  receiptFileUrl String?
+  reviewedAt     DateTime?
+  createdAt      DateTime          @default(now())
+  updatedAt      DateTime          @updatedAt
+  paidAt         DateTime?
+  refundedAt     DateTime?
+  studentId      String
+  student        User              @relation(fields: [studentId], references: [id], onDelete: Restrict)
+
+  openingId    String
+  opening      CourseOpening @relation(fields: [openingId], references: [id], onDelete: Restrict)
+  enrollmentId String?
+  enrollment   Enrollment?   @relation(fields: [enrollmentId], references: [id], onDelete: SetNull)
+
+  // Which manual payment method the student said they used, so finance can
+  // reconcile the transfer. Set from the method they picked in the UI.
+  gatewayId String?
+  gateway   PaymentGateway? @relation(fields: [gatewayId], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([openingId])
+  @@index([status])
+  @@index([gatewayId])
+  @@index([couponId])
+}
+
+// A student's request to be refunded the (full) amount they paid for a course.
+// Created while the opening's refund window is open; finance/admin then approve
+// (which runs the real refund via PaymentsService) or reject. The request keeps
+// its own audit trail even though the money movement lives on Payment.
+model RefundRequest {
+  id            String       @id @default(uuid())
+  status        RefundStatus @default(PENDING)
+  amount        Decimal      @db.Decimal(10, 2)
+  currency      String       @default("SAR")
+  method        RefundMethod
+  accountName   String
+  accountNumber String
+  studentNote   String?
+  reviewerNote  String?
+  reviewedAt    DateTime?
+  createdAt     DateTime     @default(now())
+  updatedAt     DateTime     @updatedAt
+
+  studentId String
+  student   User   @relation("RefundRequests", fields: [studentId], references: [id], onDelete: Restrict)
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Restrict)
+
+  openingId String?
+  opening   CourseOpening? @relation(fields: [openingId], references: [id], onDelete: SetNull)
+
+  paymentId String?  @unique
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+
+  reviewedById String?
+  reviewedBy   User?   @relation("RefundReviewedBy", fields: [reviewedById], references: [id], onDelete: SetNull)
+
+  @@index([studentId])
+  @@index([status])
+  @@index([courseId])
+  @@index([openingId])
+}
+
+model WebhookEvent {
+  id          String   @id
+  type        String
+  paymentId   String?
+  processedAt DateTime @default(now())
+
+  @@index([paymentId])
+}
+
+model Coupon {
+  id           String         @id @default(uuid())
+  // Human-readable label shown in finance/admin alongside the code. Defaulted
+  // to '' so the column can be added to existing rows without a backfill.
+  name         String         @default("")
+  code         String         @unique
+  type         CouponType     @default(PERCENT)
+  value        Decimal        @db.Decimal(10, 2)
+  // Cap applies per `maxUsesScope`. NULL = unlimited.
+  maxUses      Int?
+  // TOTAL: `maxUses` caps all redemptions. PER_COURSE: each targeted course
+  // gets its own `maxUses` bucket, counted from CouponRedemption rows.
+  maxUsesScope CouponMaxScope @default(TOTAL)
+  usedCount    Int            @default(0)
+  active       Boolean        @default(true)
+  // Attribution: who the coupon belongs to and through which channel it spread.
+  sourceName   String?
+  channel      String?
+  startsAt     DateTime?
+  expiresAt    DateTime?
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @updatedAt
+
+  courses     CouponCourse[]
+  referrals   Referral[]
+  redemptions CouponRedemption[]
+  payments    Payment[]
+
+  @@index([active])
+}
+
+model CouponCourse {
+  couponId String
+  courseId String
+  coupon   Coupon @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@id([couponId, courseId])
+}
+
+// Immutable record of a successful coupon use, written only when finance
+// approves the enrollment. The unique triple is what enforces "one use per
+// student per course" at the database level, and the rows double as the
+// per-course bucket for PER_COURSE caps and as the stats source.
+model CouponRedemption {
+  id        String   @id @default(uuid())
+  couponId  String
+  coupon    Coupon   @relation(fields: [couponId], references: [id], onDelete: Cascade)
+  studentId String
+  student   User     @relation(fields: [studentId], references: [id], onDelete: Cascade)
+  courseId  String
+  course    Course   @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  paymentId String?  @unique
+  payment   Payment? @relation(fields: [paymentId], references: [id], onDelete: SetNull)
+  amountOff Decimal  @default(0) @db.Decimal(10, 2)
+  usedAt    DateTime @default(now())
+
+  @@unique([couponId, studentId, courseId])
+  @@index([couponId])
+  @@index([studentId])
+  @@index([courseId])
+}
+
+model Referral {
+  id             String         @id @default(uuid())
+  code           String         @unique
+  referrerId     String
+  referrer       User           @relation("Referrer", fields: [referrerId], references: [id], onDelete: Cascade)
+  referredEmail  String?
+  referredUserId String?
+  status         ReferralStatus @default(PENDING)
+  rewardCouponId String?
+  rewardCoupon   Coupon?        @relation(fields: [rewardCouponId], references: [id], onDelete: SetNull)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  @@index([referrerId])
+}
+
+model Wishlist {
+  id        String   @id @default(uuid())
+  userId    String
+  courseId  String
+  createdAt DateTime @default(now())
+
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  course Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([userId, courseId])
+}
+
+// ===== LMS: progress, quizzes, reviews =====
+
+model LessonProgress {
+  id          String   @id @default(uuid())
+  completedAt DateTime @default(now())
+
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  moduleId     String
+  module       Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, moduleId])
+}
+
+// A student's private per-lesson notes, auto-saved from the player UI.
+model LessonNote {
+  id        String   @id @default(uuid())
+  content   String   @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+  moduleId     String
+  module       Module     @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  @@unique([enrollmentId, moduleId])
+}
+
+model Quiz {
+  id            String   @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String?
+  descriptionEn String?
+  passScore     Int      @default(60)
+  isPublished   Boolean  @default(true)
+  orderIndex    Int      @default(0)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  courseId String
+  course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  moduleId String?
+  module   Module? @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  questions QuizQuestion[]
+  attempts  QuizAttempt[]
+
+  @@index([courseId])
+}
+
+model QuizQuestion {
+  id            String           @id @default(uuid())
+  type          QuizQuestionType @default(SINGLE_CHOICE)
+  textAr        String
+  textEn        String
+  options       Json
+  correctIndex  Int?
+  explanationAr String?
+  explanationEn String?
+  orderIndex    Int              @default(0)
+
+  quizId String
+  quiz   Quiz   @relation(fields: [quizId], references: [id], onDelete: Cascade)
+}
+
+model QuizAttempt {
+  id          String   @id @default(uuid())
+  score       Int
+  passed      Boolean
+  answers     Json
+  submittedAt DateTime @default(now())
+
+  quizId       String
+  quiz         Quiz       @relation(fields: [quizId], references: [id], onDelete: Cascade)
+  enrollmentId String
+  enrollment   Enrollment @relation(fields: [enrollmentId], references: [id], onDelete: Cascade)
+
+  @@unique([quizId, enrollmentId])
+}
+
+model CourseReview {
+  id          String   @id @default(uuid())
+  rating      Int
+  commentAr   String?
+  commentEn   String?
+  isPublished Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  userId   String
+  user     User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+}
+
+// ===== Content & marketing =====
+
+model BlogPost {
+  id            String    @id @default(uuid())
+  slug          String    @unique
+  titleAr       String
+  titleEn       String
+  excerptAr     String?
+  excerptEn     String?
+  contentAr     String    @db.Text
+  contentEn     String    @db.Text
+  coverImageUrl String?
+  isPublished   Boolean   @default(false)
+  publishedAt   DateTime?
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([isPublished, publishedAt])
+}
+
+// ===== Announcements =====
+
+model Announcement {
+  id          String   @id @default(uuid())
+  titleAr     String
+  titleEn     String
+  contentAr   String   @db.Text
+  contentEn   String   @db.Text
+  isPublished Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  openingId String
+  opening   CourseOpening @relation(fields: [openingId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([openingId, isPublished, createdAt])
+}
+
+// ===== Discussions =====
+
+model DiscussionPost {
+  id         String   @id @default(uuid())
+  titleAr    String
+  titleEn    String
+  bodyAr     String   @db.Text
+  bodyEn     String   @db.Text
+  isResolved Boolean  @default(false)
+  isPinned   Boolean  @default(false)
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @updatedAt
+
+  moduleId String
+  module   Module @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  replies DiscussionReply[]
+
+  @@index([moduleId, createdAt])
+}
+
+model DiscussionReply {
+  id        String   @id @default(uuid())
+  bodyAr    String   @db.Text
+  bodyEn    String   @db.Text
+  isAnswer  Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  postId String
+  post   DiscussionPost @relation(fields: [postId], references: [id], onDelete: Cascade)
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Cascade)
+
+  @@index([postId, createdAt])
+}
+
+// ===== Instructor Rating =====
+
+model InstructorRating {
+  id        String   @id @default(uuid())
+  rating    Int
+  commentAr String?  @db.Text
+  commentEn String?  @db.Text
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  instructorId String
+  instructor   User   @relation("InstructorRatingReceived", fields: [instructorId], references: [id], onDelete: Cascade)
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  userId String
+  user   User   @relation("InstructorRatingGiven", fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([courseId, userId])
+  @@index([instructorId])
+}
+
+// ===== Gamification =====
+
+model UserPoints {
+  id             String    @id @default(uuid())
+  points         Int       @default(0)
+  level          Int       @default(1)
+  streak         Int       @default(0)
+  lastActiveDate DateTime?
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  badges UserBadge[]
+}
+
+model UserBadge {
+  id        String   @id @default(uuid())
+  badgeType String
+  earnedAt  DateTime @default(now())
+
+  pointsId String
+  points   UserPoints @relation(fields: [pointsId], references: [id], onDelete: Cascade)
+
+  @@unique([pointsId, badgeType])
+}
+
+model PointLog {
+  id        String   @id @default(uuid())
+  action    String
+  points    Int
+  createdAt DateTime @default(now())
+
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@index([userId, createdAt])
+}
+
+// ===== Learning Paths =====
+
+model LearningPath {
+  id            String   @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String?  @db.Text
+  descriptionEn String?  @db.Text
+  coverImageUrl String?
+  isPublished   Boolean  @default(false)
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  creatorId String
+  creator   User   @relation(fields: [creatorId], references: [id], onDelete: Restrict)
+
+  courses LearningPathCourse[]
+
+  @@index([isPublished])
+}
+
+model LearningPathCourse {
+  id         String   @id @default(uuid())
+  orderIndex Int      @default(0)
+  createdAt  DateTime @default(now())
+
+  pathId String
+  path   LearningPath @relation(fields: [pathId], references: [id], onDelete: Cascade)
+
+  courseId String
+  course   Course @relation(fields: [courseId], references: [id], onDelete: Cascade)
+
+  @@unique([pathId, courseId])
+}
+
+// ===== Calendar Events =====
+
+model CalendarEvent {
+  id            String   @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String?  @db.Text
+  descriptionEn String?  @db.Text
+  startsAt      DateTime
+  endsAt        DateTime
+  eventType     String   @default("deadline")
+  createdAt     DateTime @default(now())
+
+  openingId String?
+  opening   CourseOpening? @relation(fields: [openingId], references: [id], onDelete: Cascade)
+
+  @@index([openingId, startsAt])
+}
+
+// ===== Rubrics & Peer Review =====
+
+model Rubric {
+  id        String   @id @default(uuid())
+  titleAr   String
+  titleEn   String
+  createdAt DateTime @default(now())
+
+  taskId String
+  task   CourseTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+
+  criteria RubricCriterion[]
+  reviews  PeerReview[]
+
+  @@unique([taskId])
+}
+
+model RubricCriterion {
+  id            String  @id @default(uuid())
+  titleAr       String
+  titleEn       String
+  descriptionAr String? @db.Text
+  descriptionEn String? @db.Text
+  maxScore      Int     @default(10)
+  orderIndex    Int     @default(0)
+
+  rubricId String
+  rubric   Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  scores PeerCriterionScore[]
+}
+
+model PeerReview {
+  id        String   @id @default(uuid())
+  score     Int?
+  commentAr String?  @db.Text
+  commentEn String?  @db.Text
+  status    String   @default("pending")
+  createdAt DateTime @default(now())
+
+  rubricId String
+  rubric   Rubric @relation(fields: [rubricId], references: [id], onDelete: Cascade)
+
+  submissionId String
+  submission   TaskSubmission @relation(fields: [submissionId], references: [id], onDelete: Cascade)
+
+  reviewerId String
+  reviewer   User   @relation(fields: [reviewerId], references: [id], onDelete: Cascade)
+
+  criterionScores PeerCriterionScore[]
+
+  @@unique([rubricId, submissionId, reviewerId])
+}
+
+model PeerCriterionScore {
+  id        String  @id @default(uuid())
+  score     Int
+  commentAr String?
+  commentEn String?
+
+  reviewId String
+  review   PeerReview @relation(fields: [reviewId], references: [id], onDelete: Cascade)
+
+  criterionId String
+  criterion   RubricCriterion @relation(fields: [criterionId], references: [id], onDelete: Cascade)
+
+  @@unique([reviewId, criterionId])
+}
+
+// ===== Learning Analytics =====
+
+model LearningSession {
+  id            String   @id @default(uuid())
+  durationSec   Int      @default(0)
+  startedAt     DateTime @default(now())
+  lastHeartbeat DateTime @default(now())
+
+  userId   String
+  user     User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+  courseId String
+  course   Course  @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  moduleId String?
+  module   Module? @relation(fields: [moduleId], references: [id], onDelete: SetNull)
+
+  @@index([userId, courseId, startedAt])
+}
+
+// ===== Announcement Board (Dashboard + Homepage banners) =====
+
+model AnnouncementBoard {
+  id              String    @id @default(uuid())
+  titleAr         String
+  titleEn         String
+  bodyAr          String?   @db.Text
+  bodyEn          String?   @db.Text
+  mediaType       String    @default("none") // none | image | video
+  mediaUrl        String?
+  linkUrl         String?
+  priority        Int       @default(0)
+  isActive        Boolean   @default(true)
+  durationSeconds Int       @default(5) // seconds to display before auto-rotate
+  startsAt        DateTime?
+  expiresAt       DateTime?
+  createdAt       DateTime  @default(now())
+  updatedAt       DateTime  @updatedAt
+
+  authorId String
+  author   User   @relation(fields: [authorId], references: [id], onDelete: Restrict)
+
+  @@index([isActive, priority, startsAt, expiresAt])
+}

@@ -1,0 +1,35 @@
+# Controls what `railway up` uploads. The Docker build already ignores
+# node_modules via .dockerignore, but the CLI still walks and ships those trees,
+# which is ~1.1 GB across the repo and makes the upload time out.
+node_modules
+.next
+dist
+out
+build
+coverage
+
+# Runtime state: recreated by the entrypoint, must never be shipped.
+uploads
+
+# Gitignored, but `railway up` uploads from disk, not from the git index — so
+# these still went over the wire unless listed here.
+.seed-creds
+rotate-*.mjs
+check-*.js
+fix-*.js
+verify-*.js
+list-users.js
+test-*.sh
+=193
+
+# 19 MB of design source, referenced nowhere in the build.
+laxalab_academy_brand
+LaxaLab_Brand_Guidelines-1.pdf
+
+.git
+.gitignore
+
+# Secrets and logs are injected by Railway as variables, never uploaded.
+.env
+.env.*
+*.log

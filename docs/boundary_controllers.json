@@ -1,0 +1,323 @@
+{
+  "learner_pure": [
+    {
+      "file": "ratings/ratings.controller.ts",
+      "admin": false,
+      "learner": true,
+      "roles": [
+        "STUDENT"
+      ]
+    }
+  ],
+  "admin_pure": [
+    {
+      "file": "gamification/gamification.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "file": "operations/operations.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "file": "support-tickets/support-tickets.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "payment-gateways/payment-gateways.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "file": "announcement-board/announcement-board.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "blog/blog.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "instructor-applications/instructor-applications.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "finance/finance.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN",
+        "FINANCE"
+      ]
+    },
+    {
+      "file": "courses/courses.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "health/health.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN"
+      ]
+    },
+    {
+      "file": "audit/audit.controller.ts",
+      "admin": true,
+      "learner": false,
+      "roles": [
+        "ADMIN"
+      ]
+    }
+  ],
+  "mixed": [
+    {
+      "file": "learning-paths/learning-paths.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "announcements/announcements.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "commerce/commerce.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "FINANCE"
+      ]
+    },
+    {
+      "file": "grades/grades.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "certificates/certificates.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "INSTRUCTOR",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "analytics/analytics.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "refunds/refunds.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "FINANCE",
+        "STUDENT",
+        "ADMIN"
+      ]
+    },
+    {
+      "file": "users/users.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "FINANCE",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "lms/reviews.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "lms/quizzes.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER"
+      ]
+    },
+    {
+      "file": "lms/lessons.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "FINANCE",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "rubrics/rubrics.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "tasks/tasks.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "instructor-requests/instructor-requests.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "live-sessions/live-sessions.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "courses/course-openings.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "calendar/calendar.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "enrollments/enrollments.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "FINANCE"
+      ]
+    },
+    {
+      "file": "chat/chat.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "COURSE_MANAGER",
+        "FINANCE",
+        "INSTRUCTOR"
+      ]
+    },
+    {
+      "file": "discussions/discussions.controller.ts",
+      "admin": true,
+      "learner": true,
+      "roles": [
+        "ADMIN",
+        "STUDENT",
+        "INSTRUCTOR",
+        "COURSE_MANAGER"
+      ]
+    }
+  ]
+}

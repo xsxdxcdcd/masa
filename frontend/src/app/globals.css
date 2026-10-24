@@ -1,0 +1,474 @@
+@import "tailwindcss";
+
+@custom-variant dark (&:where(.dark, .dark *));
+
+@theme {
+  --color-brand-navy: #12305A;
+  --color-brand-navy-light: #1A4480;
+  --color-brand-navy-dark: #0A1C35;
+  --color-brand-gold: #C6A15B;
+  --color-brand-gold-light: #D4B67A;
+  --color-brand-gold-dark: #8B6E2D;
+  --color-brand-white: #FAFAF7;
+  --color-brand-mist: #E9EEF4;
+  --color-brand-charcoal: #202936;
+
+  --color-glass-white: rgba(255, 255, 255, 0.75);
+  --color-glass-navy: rgba(18, 48, 90, 0.85);
+
+  --font-sans: var(--font-tajawal), var(--font-manrope), sans-serif;
+  --font-tajawal: var(--font-tajawal);
+  --font-manrope: var(--font-manrope);
+
+  --animate-fade-in-up: fade-in-up 0.5s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-fade-in: fade-in 0.3s ease-out both;
+  --animate-scale-in: scale-in 0.25s cubic-bezier(0.16, 1, 0.3, 1) both;
+  --animate-float: float 3s ease-in-out infinite;
+  --animate-pulse-gold: pulse-gold 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  --animate-breathe: breathe 4s ease-in-out infinite;
+
+  @keyframes fade-in-up {
+    from {
+      opacity: 0;
+      transform: translateY(16px);
+    }
+
+    to {
+      opacity: 1;
+      transform: translateY(0);
+    }
+  }
+
+  @keyframes fade-in {
+    from {
+      opacity: 0;
+    }
+
+    to {
+      opacity: 1;
+    }
+  }
+
+  @keyframes scale-in {
+    from {
+      opacity: 0;
+      transform: scale(0.96);
+    }
+
+    to {
+      opacity: 1;
+      transform: scale(1);
+    }
+  }
+
+  @keyframes float {
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-6px);
+    }
+  }
+
+  @keyframes pulse-gold {
+
+    0%,
+    100% {
+      opacity: 1;
+      box-shadow: 0 0 0 0 rgba(198, 161, 91, 0.4);
+    }
+
+    50% {
+      opacity: 0.7;
+      box-shadow: 0 0 0 10px rgba(198, 161, 91, 0);
+    }
+  }
+
+  @keyframes breathe {
+
+    0%,
+    100% {
+      transform: scale(1);
+    }
+
+    50% {
+      transform: scale(1.02);
+    }
+  }
+}
+
+/* ---------------------------------------------------------------------------
+   Semantic surface + ink tokens.
+
+   Every open-course panel used to hard-code `bg-brand-navy` with `text-white`
+   and a stack of `bg-white/10` overlays, none of which react to the theme
+   toggle. In light mode those panels sat inside a light shell, and text that
+   assumed a navy backdrop became invisible wherever the parent was light.
+
+   `inline` makes Tailwind emit `var(--token)` rather than a frozen literal, so
+   one utility follows the theme on its own. The rule this enforces: a surface
+   and its ink are always two different tokens, and they always move together.
+   ------------------------------------------------------------------------- */
+@theme inline {
+  --color-surface: var(--surface);
+  --color-surface-sunken: var(--surface-sunken);
+  --color-surface-raised: var(--surface-raised);
+  --color-surface-inverse: var(--surface-inverse);
+  --color-surface-inverse-deep: var(--surface-inverse-deep);
+
+  --color-ink: var(--ink);
+  --color-ink-muted: var(--ink-muted);
+  --color-ink-subtle: var(--ink-subtle);
+  --color-ink-inverse: var(--ink-inverse);
+  --color-ink-on-accent: var(--ink-on-accent);
+  --color-ink-on-gold: var(--ink-on-gold);
+  --color-ink-on-navy: var(--ink-on-navy);
+  --color-ink-on-navy-muted: var(--ink-on-navy-muted);
+  --color-ink-on-navy-subtle: var(--ink-on-navy-subtle);
+  --color-gold-ink: var(--gold-ink);
+
+  --color-line: var(--line);
+  --color-line-strong: var(--line-strong);
+
+  --color-accent: var(--accent);
+  --color-accent-soft: var(--accent-soft);
+  --color-danger: var(--danger);
+  --color-danger-soft: var(--danger-soft);
+  --color-success: var(--success);
+  --color-success-soft: var(--success-soft);
+  --color-warning: var(--warning);
+  --color-warning-soft: var(--warning-soft);
+}
+
+:root {
+  /* Page-level surfaces: white cards on a warm off-white page. */
+  --surface: #ffffff;
+  --surface-sunken: #f2f5fa;
+  --surface-raised: #ffffff;
+  /* Brand panels stay navy in both themes, so white ink is always right on them. */
+  --surface-inverse: #12305a;
+  --surface-inverse-deep: #0a1c35;
+
+  --ink: #1b2434;
+  --ink-muted: #4f5c73;
+  /* Secondary text, and the token 179 call sites lean on for labels, captions
+     and 9-11px badges. At #647084 it cleared 4.5:1 on the two page surfaces but
+     only by 0.08, and it failed outright on the tinted chips (4.30:1 on
+     --accent-soft, 4.42 on --success-soft, 4.38 on --danger-soft), which is
+     where it read as washed out. #596475 gives 5.99:1 on white and 5.48:1 on
+     --surface-sunken, clears 5.1:1 on every chip tint, and keeps a visible step
+     below --ink-muted (6.75) so the ink / muted / subtle hierarchy survives. */
+  --ink-subtle: #596475;
+  --ink-inverse: #ffffff;
+  --ink-on-accent: #ffffff;
+  /* A navy panel is dark in *both* themes, so its ink cannot follow the theme
+     the way --ink does. InstructorRating's panel is the case that proved it: it
+     is `bg-brand-navy-dark` in light and dark alike, yet paired with
+     `text-gray-500` (3.53:1) and `text-gray-600` empty stars (2.26:1) off the
+     raw gray ramp, which is a light-mode scale and does not flip. Reused from
+     the dark theme's own ink values, so on #0a1c35 they land at 17.1 / 8.6 /
+     5.7:1. */
+  --ink-on-navy: #ffffff;
+  --ink-on-navy-muted: #a9bad1;
+  --ink-on-navy-subtle: #8296b2;
+  /* Gold is a light, warm surface, so it takes dark ink in *both* themes. White
+     on #C6A15B only reaches 2.43:1; navy on the same gold reaches 7.3:1. */
+  --ink-on-gold: #0a1c35;
+  /* Gold ink for text sitting on a *tinted* gold chip (gold/10 .. gold/30).
+     --accent is tuned for gold text on a plain surface and only reaches
+     ~4.1:1 on the tint, so the tinted case needs a deeper gold. */
+  --gold-ink: #6b5410;
+
+  --line: #dde4ee;
+  --line-strong: #c3cedd;
+
+  --accent: #1a4480;
+  --accent-soft: #e8eefa;
+
+  --danger: #b42318;
+  --danger-soft: #fdecea;
+  --success: #05603a;
+  --success-soft: #e6f4ec;
+  --warning: #8a5a00;
+  --warning-soft: #fdf3e0;
+}
+
+html.dark {
+  /* The page stays dark; cards lift one step off it so the edges stay visible. */
+  --surface: #11294a;
+  --surface-sunken: #0a1c35;
+  --surface-raised: #17325a;
+  --surface-inverse: #16325c;
+  --surface-inverse-deep: #0a1c35;
+
+  --ink: #eaf0f8;
+  --ink-muted: #a9bad1;
+  /* #8296b2 cleared the page and the sunken surface but only reached 4.24:1 on
+     --surface-raised, the lifted card surface, which is where most dark-mode
+     captions sit. #95a6be gives 5.89 / 6.89 / 5.17 across the three surfaces and
+     keeps a visible step below --ink-muted. */
+  --ink-subtle: #95a6be;
+  --ink-inverse: #ffffff;
+  --ink-on-accent: #0a1c35;
+  --ink-on-gold: #0a1c35;
+  /* Theme-independent: a navy panel is dark either way. Repeated here so the
+     dark block lists the whole ink set and a future edit cannot silently
+     repoint one of these at a light value. */
+  --ink-on-navy: #ffffff;
+  --ink-on-navy-muted: #a9bad1;
+  --ink-on-navy-subtle: #8296b2;
+  --gold-ink: #e8d3a0;
+
+  --line: rgba(255, 255, 255, 0.12);
+  --line-strong: rgba(255, 255, 255, 0.2);
+
+  --accent: #d4b67a;
+  /* A `-soft` chip is a *tinted surface*, so it has to stay dark while its ink
+     stays bright. These used to be the ink's own hue at low alpha, which made
+     the chip and its own label the same colour. Opaque, so the value is exact
+     and hue-preserving rather than washed out by the navy underneath. */
+  --accent-soft: #3d3014;
+
+  --danger: #ff9a8f;
+  --danger-soft: #421d1f;
+  --success: #6ee7b0;
+  --success-soft: #0e4433;
+  --warning: #f0c674;
+  --warning-soft: #402f0f;
+}
+
+.glass-panel {
+  background: var(--color-glass-white);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.4);
+}
+
+.glass-panel-dark {
+  background: var(--color-glass-navy);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@keyframes shrink {
+  from {
+    width: 0%;
+  }
+
+  to {
+    width: 100%;
+  }
+}
+
+body {
+  background-color: var(--color-brand-white);
+  color: var(--color-brand-charcoal);
+}
+
+/* ---- Admin panel design system ---- */
+
+/* Elevated card */
+.admin-card {
+  background-color: #fff;
+  border: 1px solid var(--color-brand-mist);
+  border-radius: 1.25rem;
+  transition: box-shadow 0.3s cubic-bezier(0.4, 0, 0.2, 1), transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), border-color 0.3s ease;
+}
+
+.admin-card:hover {
+  box-shadow: 0 20px 40px -10px rgba(18, 48, 90, 0.12), 0 10px 20px -5px rgba(18, 48, 90, 0.08);
+  transform: translateY(-4px);
+  border-color: var(--color-brand-gold-light);
+}
+
+.admin-tile {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 0.9rem;
+}
+
+.admin-table-wrap {
+  border: 1px solid var(--color-brand-mist);
+  border-radius: 1.25rem;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  background: #fff;
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.05);
+}
+
+.admin-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.admin-table thead th {
+  background: linear-gradient(180deg, #ffffff, #f5f7fb);
+  color: var(--color-brand-navy);
+  text-transform: uppercase;
+  font-size: 0.75rem;
+  letter-spacing: 0.05em;
+  font-weight: 800;
+  padding: 1rem 1.25rem;
+  border-bottom: 2px solid var(--color-brand-mist);
+  white-space: nowrap;
+}
+
+.admin-table tbody td {
+  padding: 1.125rem 1.25rem;
+  border-bottom: 1px solid rgba(233, 238, 244, 0.7);
+}
+
+.admin-table tbody tr {
+  transition: all 0.2s ease;
+}
+
+.admin-table tbody tr:hover {
+  background-color: var(--color-brand-white);
+  transform: scale(1.002);
+}
+
+.admin-table tbody tr:last-child td {
+  border-bottom: none;
+}
+
+.admin-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.375rem;
+  padding: 0.375rem 0.875rem;
+  border-radius: 9999px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1;
+  white-space: nowrap;
+  letter-spacing: 0.025em;
+}
+
+.admin-badge .dot {
+  width: 0.375rem;
+  height: 0.375rem;
+  border-radius: 9999px;
+  background: currentColor;
+}
+
+.admin-stat-value {
+  font-size: 1.875rem;
+  line-height: 1.1;
+  font-weight: 800;
+  letter-spacing: -0.025em;
+}
+
+.admin-action-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.75rem;
+  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+.admin-action-btn:hover {
+  transform: translateY(-2px) scale(1.05);
+  box-shadow: 0 4px 12px rgba(18, 48, 90, 0.1);
+}
+
+.admin-action-btn:active {
+  transform: translateY(0) scale(0.95);
+}
+
+.admin-gradient-text {
+  background: linear-gradient(135deg, var(--color-brand-gold-dark), var(--color-brand-gold), var(--color-brand-gold-light));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  background-size: 200% auto;
+  animation: shine 4s linear infinite;
+}
+
+@keyframes shine {
+  to {
+    background-position: 200% center;
+  }
+}
+
+/* Custom scrollbar for admin panel */
+.admin-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+.admin-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.admin-scroll::-webkit-scrollbar-thumb {
+  background: var(--color-brand-mist);
+  border-radius: 9999px;
+}
+
+.admin-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--color-brand-gold);
+}
+
+/* Base input and button focus rings */
+input:focus-visible,
+textarea:focus-visible,
+select:focus-visible,
+button:focus-visible {
+  outline: 2px solid var(--color-brand-gold-light);
+  outline-offset: 2px;
+}
+
+/* Dark mode body base */
+html.dark body {
+  background-color: #0a1c35;
+}
+
+html:not(.dark) body {
+  background-color: #fafaf7;
+}
+
+html.dark body {
+  color: var(--color-brand-mist);
+}
+
+/* Dark overrides for legacy fixed-white surfaces (loaded last to win over page utilities) */
+html.dark .admin-card {
+  background-color: var(--color-brand-navy);
+  border-color: rgba(214, 182, 122, 0.16);
+}
+
+html.dark .admin-card:hover {
+  border-color: var(--color-brand-gold-light);
+  box-shadow: 0 20px 40px -10px rgba(0, 0, 0, 0.45), 0 10px 20px -5px rgba(0, 0, 0, 0.3);
+}
+
+html.dark .admin-table-wrap {
+  background-color: var(--color-brand-navy);
+  border-color: rgba(214, 182, 122, 0.16);
+  box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.35);
+}
+
+html.dark .admin-table thead th {
+  background: linear-gradient(180deg, var(--color-brand-navy-light), #0f2c55);
+  color: var(--color-brand-gold-light);
+  border-bottom-color: rgba(214, 182, 122, 0.2);
+}
+
+html.dark .admin-table tbody td {
+  border-bottom-color: rgba(214, 182, 122, 0.1);
+}
+
+html.dark .admin-table tbody tr:hover {
+  background-color: var(--color-brand-navy-light);
+}
+
+html.dark .admin-scroll::-webkit-scrollbar-thumb {
+  background: rgba(214, 182, 122, 0.35);
+}

@@ -1,0 +1,38 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    container_name: laxalab-postgres
+    restart: always
+    environment:
+      # No hardcoded secret — DB_PASSWORD must come from an untracked .env.
+      # Local dev: create a .env with DB_PASSWORD=<random strong value>; production
+      # compose must refuse to start when it is missing.
+      POSTGRES_USER: ${DB_USER:-laxalab_admin}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:?DB_PASSWORD is required — create a local .env (see .env.example) and never commit it}
+      POSTGRES_DB: ${DB_NAME:-laxalab_db}
+    ports:
+      # Bound to loopback only. "5432:5432" published Postgres on every
+      # interface, so any host on the network (or a neighbour on shared
+      # infrastructure) could reach the database and try the password.
+      - "127.0.0.1:5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+      start_period: 10s
+    networks:
+      - laxalab_network
+
+volumes:
+  postgres_data:
+    name: laxalab_postgres_data
+
+networks:
+  laxalab_network:
+    name: laxalab_network
+    driver: bridge

@@ -1,0 +1,27 @@
+node_modules
+dist
+frontend
+uploads
+.env
+.env.production
+.git
+test.http
+*.pdf
+*.log
+
+# The builder stage does `COPY . .`, so anything ignored by git but present on
+# disk still enters the build context and is baked into a layer. These are all
+# gitignored (see .gitignore) yet were shipping real credentials:
+#   .seed-creds       plaintext passwords for the five role accounts
+#   rotate-creds.mjs  had a production admin password as a literal fallback
+#   check-*.js        ad-hoc API probing against production
+.seed-creds
+rotate-*.mjs
+check-*.js
+fix-*.js
+verify-*.js
+list-users.js
+test-*.sh
+=193
+*.tsbuildinfo
+coverage

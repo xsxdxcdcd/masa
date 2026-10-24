@@ -1,0 +1,15 @@
+[build]
+builder = "dockerfile"
+dockerfilePath = "Dockerfile"
+
+[deploy]
+startCommand = "node server.js"
+restartPolicyType = "on_failure"
+restartPolicyMaxRetries = 5
+# The bare root is a 307 to /ar on purpose (the language depends on the
+# visitor's explicit choice, so it must not be cached as permanent). Railway's
+# default healthcheck path is "/", and it does not treat that redirect as a
+# healthy response, so every deploy since 2026-09-30 built fine, started fine,
+# and was still reported as FAILED. Probing the prefixed page gets a plain 200
+# while leaving the redirect exactly as designed.
+healthcheckPath = "/ar"

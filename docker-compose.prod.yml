@@ -1,0 +1,114 @@
+# Production deployment target: self-hosted Docker Compose (alternative: Railway).
+# Copy `.env.production.example` to `.env.production`, fill in real values, then:
+#   docker compose --env-file .env.production -f docker-compose.prod.yml up -d --build
+# Set DOMAIN in `.env.production` to your real domain (default yourdomain.com).
+# NOTE: `--env-file .env.production` is required — Compose interpolates ${...}
+# from it AND the services read the same file (env_file), so one file drives config.
+services:
+  db:
+    image: postgres:15-alpine
+    restart: always
+    env_file: .env.production
+    environment:
+      POSTGRES_USER: ${DB_USER}
+      POSTGRES_PASSWORD: ${DB_PASS}
+      POSTGRES_DB: ${DB_NAME}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER} -d ${DB_NAME}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    networks:
+      - app-network
+
+  backend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    restart: always
+    env_file: .env.production
+    environment:
+      # Must match EXPOSE and nginx proxy_pass http://backend:3000/
+      - PORT=3000
+      # Compose-internal DB hostname (not the host machine's localhost)
+      - DATABASE_URL=postgresql://${DB_USER}:${DB_PASS}@db:5432/${DB_NAME}?schema=public
+    depends_on:
+      db:
+        condition: service_healthy
+    volumes:
+      - uploads_data:/usr/src/app/uploads
+    networks:
+      - app-network
+
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+      args:
+        # NEXT_PUBLIC_* values are baked into the bundle at build time
+        NEXT_PUBLIC_API_URL: ${NEXT_PUBLIC_API_URL:-https://${DOMAIN:-yourdomain.com}/api}
+    restart: always
+    env_file: .env.production
+    environment:
+      - NODE_ENV=production
+    depends_on:
+      - backend
+    networks:
+      - app-network
+
+  nginx:
+    image: nginx:alpine
+    restart: always
+    depends_on:
+      - frontend
+      - backend
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      # nginx entrypoint runs envsubst over *.template files, so DOMAIN here
+      # parametrizes server_name + the letsencrypt certificate paths.
+      - DOMAIN=${DOMAIN:-yourdomain.com}
+    volumes:
+      - ./nginx:/etc/nginx/templates:ro
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    networks:
+      - app-network
+
+  # Issues the certificate (once) then renews forever. Initial run:
+  #   docker compose --env-file .env.production -f docker-compose.prod.yml up --build certbot
+  # (ensures the webroot challenge files are served by nginx before exit 0
+  #  triggers Let's Encrypt issuance + nginx reload).
+  certbot:
+    image: certbot/certbot
+    restart: unless-stopped
+    depends_on:
+      - nginx
+    environment:
+      - DOMAIN=${DOMAIN:-yourdomain.com}
+      - CERTBOT_EMAIL=${CERTBOT_EMAIL:?CERTBOT_EMAIL is required in .env.production}
+    volumes:
+      - certbot_www:/var/www/certbot
+      - certbot_certs:/etc/letsencrypt
+    entrypoint: >
+      /bin/sh -c '
+      trap exit TERM;
+      certbot certonly --webroot -w /var/www/certbot -d "$$DOMAIN" -d "www.$$DOMAIN" \
+        --agree-tos --email "$$CERTBOT_EMAIL" -n --keep-until-expiring
+      while :; do
+        sleep 43200 & wait $${!};
+        certbot renew --webroot -w /var/www/certbot;
+      done'
+
+volumes:
+  postgres_data:
+  uploads_data:
+  certbot_www:
+  certbot_certs:
+
+networks:
+  app-network:
+    driver: bridge
