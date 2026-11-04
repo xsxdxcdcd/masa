@@ -121,7 +121,6 @@ export class OperationsService {
         res: Response,
         startedAt: number,
         sessionId: string | null,
-        userId: string | null = null,
     ): Promise<void> {
         try {
             const path = (req.originalUrl || req.url || '/').split('?')[0];
@@ -136,17 +135,8 @@ export class OperationsService {
             // /health would just be noise.
             if (!sessionId) return;
 
-            // The session may have been created anonymously on the very first
-            // page load and only authenticated later, so the id is refreshed here
-            // for signed-in traffic rather than trusting whatever was resolved
-            // before the guards ran.
-            if (userId) {
-                await this.prisma.visitSession.updateMany({
-                    where: { id: sessionId, userId: null },
-                    data: { userId },
-                });
-            }
-
+            // resolveSession promotes anonymous sessions once; repeating this
+            // update here would write the same user id on every authenticated API call.
             await this.prisma.visitEvent.create({
                 data: {
                     sessionId,

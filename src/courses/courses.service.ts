@@ -822,29 +822,10 @@ export class CoursesService {
     async setOpeningPublished(openingId: string, isPublished: boolean, actorId: string, actorRole: Role) {
         const existing = await this.prisma.courseOpening.findUnique({
             where: { id: openingId },
-            include: { course: { select: { id: true, titleAr: true, titleEn: true } } },
         });
         if (!existing) throw new NotFoundException('Opening not found');
-        // Publishing is not a cosmetic flag: it emails every wishlist user and
-        // flips PENDING reservations to "payment due". That blast had to be
-        // gated on actually managing the opening.
         this.assertCanManage(existing, actorId, actorRole);
         const result = await this.setStatus(openingId, isPublished ? CourseOpeningStatus.OPEN : CourseOpeningStatus.DRAFT);
-        if (isPublished) {
-            const wishlistUsers = await this.prisma.wishlist.findMany({
-                where: { courseId: existing.courseId },
-                select: { userId: true },
-            });
-            await Promise.all(wishlistUsers.map((w) => this.notifications.notify({
-                userId: w.userId,
-                type: 'opening.published',
-                titleAr: 'فُتح التسجيل في الدورة',
-                titleEn: 'Registration is open',
-                bodyAr: `تم فتح التسجيل في دورة: ${existing.course.titleAr}`,
-                bodyEn: `Registration is now open for "${existing.course.titleEn}".`,
-                data: { courseId: existing.courseId, openingId },
-            }).catch(() => {})));
-        }
         if (isPublished && existing.status !== CourseOpeningStatus.OPEN) {
             // Publishing also flips the status to OPEN, so anyone sitting on a
             // reservation from the announcement window now owes money. Only on a

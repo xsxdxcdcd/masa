@@ -6,7 +6,7 @@ import type { ReactNode } from 'react';
 import { useFetchData } from '@/lib/useFetchData';
 import { useI18n } from '@/lib/i18n-context';
 import { formatPrice, formatDate } from '@/lib/format';
-import { ArrowLeft, Trophy, Flame, Star, User, BookOpen, CreditCard } from 'lucide-react';
+import { ArrowLeft, User, BookOpen, CreditCard } from 'lucide-react';
 import { PageHeader, Badge, EmptyState, type Tone } from '../../components';
 
 interface UserDetail {
@@ -33,21 +33,6 @@ interface Payment {
     createdAt: string;
 }
 
-interface BadgeData {
-    type: string;
-    nameAr?: string | null;
-    nameEn?: string | null;
-    threshold: number;
-    earned: boolean;
-}
-
-interface GamificationData {
-    points?: number;
-    level?: number;
-    streak?: number;
-    allBadges?: BadgeData[];
-}
-
 const roleTone: Record<string, Tone> = {
     ADMIN: 'red',
     FINANCE: 'green',
@@ -70,16 +55,10 @@ export default function AdminUserDetailPage() {
     const { data: user, loading, error } = useFetchData<UserDetail>(`/users/${id}`);
     const { data: enrollments, loading: enrollmentsLoading } = useFetchData<Enrollment[]>(`/enrollments/all?studentId=${id}`);
     const { data: payments, loading: paymentsLoading } = useFetchData<Payment[]>(`/payments?userId=${id}`);
-    const { data: gamification } = useFetchData<GamificationData>(`/gamification/${id}`);
 
     const meta = (user?.metadata ?? {}) as Record<string, unknown>;
     const roleLabel = (role: string) => t('roles.' + (role || '').toLowerCase()) || role;
     const statusLabel = (status: string) => t('statuses.' + (status || '').toLowerCase()) || status;
-
-    const points = Number(gamification?.points ?? 0);
-    const level = Math.max(1, Number(gamification?.level ?? 1));
-    const streak = Number(gamification?.streak ?? 0);
-    const badges = (gamification?.allBadges || []).filter(b => b.earned);
 
     const infoRows: { label: string; value: ReactNode }[] = [
         { label: t('profile.email'), value: <span className="text-brand-navy dark:text-gray-200">{user?.email || '—'}</span> },
@@ -145,58 +124,6 @@ export default function AdminUserDetailPage() {
                         </div>
                     </div>
 
-                    {/* Gamification stats */}
-                    {gamification && (
-                        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 animate-fade-in-up">
-                            <div className="bg-white dark:bg-brand-navy-dark border border-gray-200 dark:border-white/5 rounded-2xl p-5 flex items-center gap-4">
-                                <div className="w-11 h-11 rounded-xl bg-brand-gold/15 text-brand-gold-dark dark:text-brand-gold-light flex items-center justify-center shrink-0">
-                                    <Star size={22} />
-                                </div>
-                                <div>
-                                    <div className="text-2xl font-black text-brand-navy dark:text-white tabular-nums">{points}</div>
-                                    <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-0.5">{t('gamification.xp')}</div>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-brand-navy-dark border border-gray-200 dark:border-white/5 rounded-2xl p-5 flex items-center gap-4">
-                                <div className="w-11 h-11 rounded-xl bg-purple-500/15 text-purple-600 dark:text-purple-400 flex items-center justify-center shrink-0">
-                                    <Trophy size={22} />
-                                </div>
-                                <div>
-                                    <div className="text-2xl font-black text-brand-navy dark:text-white tabular-nums">{level}</div>
-                                    <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-0.5">{t('gamification.level')}</div>
-                                </div>
-                            </div>
-                            <div className="bg-white dark:bg-brand-navy-dark border border-gray-200 dark:border-white/5 rounded-2xl p-5 flex items-center gap-4">
-                                <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${streak > 0 ? 'bg-orange-50 dark:bg-orange-500/15 text-orange-600 dark:text-orange-400' : 'bg-gray-100 dark:bg-white/10 text-gray-500 dark:text-gray-400'}`}>
-                                    <Flame size={22} />
-                                </div>
-                                <div>
-                                    <div className="text-2xl font-black text-brand-navy dark:text-white tabular-nums">{streak}</div>
-                                    <div className="text-xs font-bold text-gray-500 dark:text-gray-400 mt-0.5">{t('gamification.streak')}</div>
-                                </div>
-                            </div>
-                        </div>
-                    )}
-
-                    {/* Badges grid */}
-                    {badges.length > 0 && (
-                        <div className="bg-white dark:bg-brand-navy-dark border border-gray-200 dark:border-white/5 rounded-2xl p-6 animate-fade-in-up">
-                            <h3 className="font-black text-brand-navy dark:text-white mb-4">{t('gamification.badges')}</h3>
-                            <div className="grid grid-cols-2 sm:grid-cols-4 md:grid-cols-6 gap-3">
-                                {badges.map(b => (
-                                    <div
-                                        key={b.type}
-                                        title={pick(b, 'name') || b.type}
-                                        className="rounded-xl border border-brand-gold/30 bg-brand-gold/5 p-3 flex flex-col items-center gap-1.5 text-center"
-                                    >
-                                        <Trophy size={20} className="text-brand-gold-dark dark:text-brand-gold-light" />
-                                        <span className="text-[10px] font-bold text-brand-navy dark:text-gray-200 leading-tight break-all">{pick(b, 'name') || b.type}</span>
-                                    </div>
-                                ))}
-                            </div>
-                        </div>
-                    )}
-
                     {/* Enrollments table */}
                     <div className="admin-table-wrap animate-fade-in-up">
                         <table className="admin-table text-left">
@@ -220,7 +147,7 @@ export default function AdminUserDetailPage() {
                                     </tr>
                                 ))}
                                 {!enrollmentsLoading && (enrollments || []).length === 0 && (
-                                    <EmptyState icon={BookOpen} title={t('gamification.no_data')} />
+                                    <EmptyState icon={BookOpen} title={t('admin.no_user_courses')} />
                                 )}
                             </tbody>
                         </table>
@@ -247,7 +174,7 @@ export default function AdminUserDetailPage() {
                                     </tr>
                                 ))}
                                 {!paymentsLoading && (payments || []).length === 0 && (
-                                    <EmptyState icon={CreditCard} title={t('gamification.no_data')} />
+                                    <EmptyState icon={CreditCard} title={t('admin.no_user_payments')} />
                                 )}
                             </tbody>
                         </table>

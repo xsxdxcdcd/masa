@@ -34,7 +34,7 @@
 **الهدف**: بيئة تعليمية يومية، أقل امتيازًا.
 
 **Modules/Controllers (مرشح):**
-- `courses`, `course-openings`, `lms` (lessons/quizzes), `enrollments`, `grades` (جزء learner)، `certificates` (read/student + issuance ذات صلة بالتدريس)، `chat`, `messages`, `discussions`, `learning-paths`, `calendar` (learner), `analytics` (learner), `gamification` (learner-facing)، `ratings/reviews`, `referrals` (learner)، `wishlist`, `notifications` (learner/instructor)، `instructor-applications`, `instructor-requests`, `blog` (عام)، `live-sessions`, `refunds` (طلب الطالب فقط: create/list own).
+- `courses`, `course-openings`, `lms` (lessons/quizzes), `enrollments`, `grades` (جزء learner)، `certificates` (read/student + issuance ذات صلة بالتدريس)، `chat`, `messages`, `learning-paths`, `calendar` (learner), `analytics` (learner), `ratings/reviews`, `referrals` (learner)، `notifications` (learner/instructor)، `instructor-applications`, `instructor-requests`, `blog` (عام)، `live-sessions`, `refunds` (طلب الطالب فقط: create/list own).
 
 **Roles**: `STUDENT`, `INSTRUCTOR`
 

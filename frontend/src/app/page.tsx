@@ -1,5 +1,6 @@
 'use client';
 import Link from 'next/link';
+import Image from 'next/image';
 import { useMemo, useState } from 'react';
 import { BookOpen, Award, Shield, Users, GraduationCap, ChevronRight, Sparkles, PlayCircle, Play, Camera, Send, Hash, Globe, Mail, Clock, Target, MapPin } from 'lucide-react';
 import { useI18n } from '@/lib/i18n-context';
@@ -39,8 +40,8 @@ export default function Home() {
   const aboutValues = [
     { icon: Target, titleAr: 'التعلم العملي', titleEn: 'Hands-on Learning', descAr: 'دورات مبنية على مشاريع واقعية وتطبيق مباشر.', descEn: 'Courses built on real-world projects and direct application.' },
     { icon: Globe, titleAr: 'ثنائية اللغة', titleEn: 'Bilingual', descAr: 'محتوى عربي وإنجليزي أصيل لمتعلمين من كل العالم.', descEn: 'Genuinely Arabic and English content for learners worldwide.' },
-    { icon: Award, titleAr: 'شهادات معتمدة', titleEn: 'Certificates', descAr: 'شهادات برموز تحقق رسمية يمكن لأي جهة التحقق منها.', descEn: 'Certificates with official verification codes anyone can validate.' },
-    { icon: Users, titleAr: 'مجتمع داعم', titleEn: 'Community', descAr: 'منتدى تفاعلي مباشر مع المدربين والطلاب.', descEn: 'A live forum with instructors and peers.' },
+    { icon: Award, titleAr: 'شهادات قابلة للتحقق', titleEn: 'Verifiable Certificates', descAr: 'تحقق من صحة الشهادة باستخدام رمزها الخاص.', descEn: 'Verify a certificate using its unique code.' },
+    { icon: Users, titleAr: 'تواصل أثناء التعلم', titleEn: 'Learning Conversations', descAr: 'تواصل مع المدرّبين وزملائك عبر محادثات الدورات والدفعات.', descEn: 'Connect with instructors and classmates through course and cohort chats.' },
   ];
 
   const socials = [
@@ -90,34 +91,34 @@ export default function Home() {
             {t('landing.badge')}
           </div>
 
-          <h2 className={`text-5xl md:text-7xl font-black tracking-tight leading-tight ${heroTitleCls}`}>
+          <h1 className={`text-5xl md:text-7xl font-black tracking-tight leading-tight ${heroTitleCls}`}>
             {t('landing.hero_title')}
             {/* The brand word used to be re-typed here as styled text, which
                 read as a second, unofficial logo next to the real one in the
                 header. Show the actual mark instead. */}
-            <img
+            <Image
               src={dark ? '/logos/LaxaLab_Academy_Horizontal_Reverse_4K.png' : '/logos/LaxaLab_Academy_Horizontal_Primary_4K.png'}
               alt="Laxalab Academy"
+              width={4096}
+              height={822}
+              sizes="(max-width: 640px) 80vw, 480px"
+              priority
               className="block mt-5 mx-auto h-14 md:h-20 lg:h-24 w-auto max-w-[80vw] object-contain"
             />
-          </h2>
+          </h1>
 
           <p className={`text-xl md:text-2xl max-w-2xl mx-auto font-medium leading-relaxed ${heroDescCls}`}>
             {t('landing.hero_desc')}
           </p>
 
           <div className="flex flex-col sm:flex-row items-center justify-center gap-4 pt-6">
-            <Link href="/courses">
-              <button className={`flex items-center gap-2 font-black text-lg px-8 py-4 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group ${exploreBtnCls}`}>
-                {t('landing.explore_courses')}
-                <ChevronRight className="rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
-              </button>
+            <Link href="/courses" className={`flex items-center gap-2 font-black text-lg px-8 py-4 rounded-2xl shadow-xl hover:shadow-2xl hover:-translate-y-1 transition-all duration-300 group ${exploreBtnCls}`}>
+              {t('landing.explore_courses')}
+              <ChevronRight className="rtl:rotate-180 group-hover:translate-x-1 rtl:group-hover:-translate-x-1 transition-transform" />
             </Link>
-            <Link href="/join-as-instructor">
-              <button className={`flex items-center gap-2 border font-bold text-lg px-8 py-4 rounded-2xl hover:shadow-lg transition-all duration-300 ${joinBtnCls}`}>
-                <GraduationCap size={22} />
-                {t('landing.join_as_instructor')}
-              </button>
+            <Link href="/join-as-instructor" className={`flex items-center gap-2 border font-bold text-lg px-8 py-4 rounded-2xl hover:shadow-lg transition-all duration-300 ${joinBtnCls}`}>
+              <GraduationCap size={22} />
+              {t('landing.join_as_instructor')}
             </Link>
           </div>
 
@@ -136,9 +137,12 @@ export default function Home() {
             <h3 className={`text-3xl md:text-4xl font-black mb-4 ${dark ? 'text-white' : 'text-brand-navy'}`}>
               {t('landing.why_heading')}
             </h3>
-            <img
+            <Image
               src={dark ? '/logos/LaxaLab_Academy_Horizontal_Mono_White_4K.png' : '/logos/LaxaLab_Academy_Horizontal_Mono_Navy_4K.png'}
               alt="Laxalab Academy"
+              width={4096}
+              height={822}
+              sizes="(max-width: 640px) 70vw, 240px"
               className="mx-auto h-10 md:h-12 w-auto max-w-[70vw] object-contain"
             />
             <p className={`max-w-xl mx-auto text-lg leading-relaxed ${dark ? 'text-gray-400' : 'text-gray-500'}`}>{t('landing.why_desc')}</p>

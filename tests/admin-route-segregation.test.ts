@@ -40,7 +40,6 @@ const EXPECTED_ADMIN_CONTROLLERS = [
     'src/blog/admin-blog.controller.ts',
     'src/courses/admin-courses.controller.ts',
     'src/finance/admin-finance.controller.ts',
-    'src/gamification/admin-gamification.controller.ts',
     'src/instructor-applications/admin-instructor-applications.controller.ts',
     'src/operations/admin-operations.controller.ts',
     'src/payment-gateways/admin-payment-gateways.controller.ts',
@@ -50,7 +49,7 @@ const EXPECTED_ADMIN_CONTROLLERS = [
 const adminControllers = walk(SRC)
     .filter((f) => f.endsWith('.controller.ts'))
     .filter((f) => /@Controller\('api\/admin/.test(readFileSync(f, 'utf8')))
-    .map((f) => relative(ROOT, f));
+    .map((f) => relative(ROOT, f).replace(/\\/g, '/'));
 
 test('every admin-pure family has its /api/admin controller', () => {
     for (const expected of EXPECTED_ADMIN_CONTROLLERS) {
@@ -178,10 +177,6 @@ function isViolation(method: string, path: string): string | null {
         if (m === 'GET' && path.startsWith('/instructor-applications/my')) return null;
         if (m === 'POST' && path === '/instructor-applications') return null;
         return 'application admin routes moved';
-    }
-    if (path === '/gamification' || path.startsWith('/gamification/')) {
-        if (m === 'GET') return null;
-        return m === 'POST' && path === '/gamification/track' ? null : 'gamification admin routes moved';
     }
     if (path === '/blog' || path.startsWith('/blog/')) {
         return m === 'GET' ? null : 'blog admin routes moved';

@@ -17,8 +17,8 @@ const FAQS = [
     {
         qAr: 'كيف تعمل الدورات؟',
         qEn: 'How do the courses work?',
-        aAr: 'تنقسم كل دورة إلى وحدات ومواد دراسية متسلسلة. يمكنك متابعة تقدمك، وإنجاز الواجبات والاختبارات، والتواصل مع المدرّب والطلاب من خلال منتدى الدورة. بعض الدورات تشمل جلسات مباشرة حسب الدفعة التي تلتحق بها.',
-        aEn: 'Every course is split into sequential modules and study materials. You can track your progress, complete assignments and quizzes, and interact with your instructor and peers through the course forum. Some courses include live sessions depending on the cohort you join.',
+        aAr: 'تتضمن الدورة وحدات ومواد دراسية، ويمكنك متابعة تقدمك وإنجاز الواجبات والاختبارات. تتوفر محادثات الدورة أو الدفعة عند تفعيلها، وقد تشمل بعض الدورات جلسات مباشرة بحسب الدفعة.',
+        aEn: 'Courses include learning materials, assignments, and quizzes where configured. Course or cohort chats are available when enabled, and some cohorts also include live sessions.',
     },
     {
         qAr: 'هل أحصل على شهادة بعد إتمام الدورة؟',
@@ -29,8 +29,8 @@ const FAQS = [
     {
         qAr: 'ما هي طرق الدفع المقبولة؟',
         qEn: 'Which payment methods are accepted?',
-        aAr: 'يقبل الموقع الدفع عبر البطاقات الائتمانية والخصم المباشر، ومدى إذا كان متاحاً في منطقتك. تُعرض أسعار كل دفعة بعملتها (عادةً الريال السعودي أو الدولار) قبل إتمام عملية الدفع.',
-        aEn: 'The platform accepts credit and debit cards, and Mada where available in your region. Each cohort’s price is shown in its currency (usually SAR or USD) before you complete the payment.',
+        aAr: 'تظهر طرق الدفع المتاحة في صفحة التسجيل للدورة أو الدفعة. اختر إحدى الطرق المعروضة واتبع تعليماتها؛ وقد تختلف الطرق بحسب إعدادات المنصة.',
+        aEn: 'Available payment methods are shown during course or cohort enrollment. Choose one of the displayed methods and follow its instructions; available methods depend on the platform configuration.',
     },
     {
         qAr: 'هل يمكنني استرداد المبلغ في حال لم تناسبني الدورة؟',
@@ -41,8 +41,8 @@ const FAQS = [
     {
         qAr: 'كيف أتواصل مع فريق الدعم؟',
         qEn: 'How do I reach the support team?',
-        aAr: 'يمكنك استخدام صفحة "تواصل معنا" لإرسال رسالتك، أو إنشاء تذكرة دعم من داخل لوحة التحكم. نرد عادةً خلال 24 إلى 48 ساعة عمل.',
-        aEn: 'You can send a message through the "Contact" page, or open a support ticket from inside your dashboard. We typically respond within 24–48 business hours.',
+        aAr: 'يمكنك استخدام صفحة "تواصل معنا" لإرسال رسالتك، أو إنشاء تذكرة دعم من داخل لوحة التحكم، وسيراجع فريق الدعم طلبك.',
+        aEn: 'You can send a message through the "Contact" page, or open a support ticket from inside your dashboard. Our support team will review your request.',
     },
 ];
 

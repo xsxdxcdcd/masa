@@ -47,12 +47,13 @@ const MIXED_CONTROLLERS = [
     'src/calendar/calendar.controller.ts',
     'src/enrollments/enrollments.controller.ts',
     'src/chat/chat.controller.ts',
-    'src/discussions/discussions.controller.ts',
 ];
 
 /** Platform-only routes -> permission constant name (PERMISSIONS.X). */
 const EXPECTED_PERMISSIONS: Record<string, [string, string, string][]> = {
     'src/learning-paths/learning-paths.controller.ts': [
+        ['GET', 'manage', 'PATHS_WRITE'],
+        ['GET', 'manage/courses', 'PATHS_WRITE'],
         ['POST', '', 'PATHS_WRITE'],
         ['PATCH', ':id', 'PATHS_WRITE'],
         ['DELETE', ':id', 'PATHS_WRITE'],
@@ -163,7 +164,6 @@ const EXPECTED_PERMISSIONS: Record<string, [string, string, string][]> = {
         ['PATCH', ':id/review', 'ENROLLMENTS_REVIEW'],
     ],
     'src/chat/chat.controller.ts': [],
-    'src/discussions/discussions.controller.ts': [],
 };
 
 function normalizeToken(token: string): string {
@@ -238,7 +238,7 @@ function classLevelRoles(src: string, consts: Map<string, string[]>): string[] |
 
 test('Phase 4 fixture is wired and fully annotated', () => {
     const total = Object.values(EXPECTED_PERMISSIONS).reduce((sum, rows) => sum + rows.length, 0);
-    assert.equal(total, 75, 'the mixed-surface fixture drifted from the 75 annotated platform routes');
+    assert.equal(total, 77, 'the mixed-surface fixture drifted from the 77 annotated platform routes');
 
     for (const rel of MIXED_CONTROLLERS) {
         const src = readFileSync(join(ROOT, rel), 'utf8');

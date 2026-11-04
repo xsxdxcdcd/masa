@@ -6,7 +6,6 @@ import { RubricsService } from '../src/rubrics/rubrics.service';
 import { QuizzesService } from '../src/lms/quizzes.service';
 import { CoursesService } from '../src/courses/courses.service';
 import { AuthService } from '../src/auth/auth.service';
-import { GamificationService } from '../src/gamification/gamification.service';
 import { EnrollmentsService } from '../src/enrollments/enrollments.service';
 
 /**
@@ -16,7 +15,6 @@ import { EnrollmentsService } from '../src/enrollments/enrollments.service';
  */
 
 const audit = { logAction: async () => {} } as never;
-const gamification = { addPoints: async () => {} } as never;
 
 describe('SECURITY: peer review cannot cross submissions or bypass self-review', () => {
     const build = (over: {
@@ -52,7 +50,7 @@ describe('SECURITY: peer review cannot cross submissions or bypass self-review',
                 create: async (args: any) => { createdData = args.data; return args.data; },
             },
         };
-        const svc = new RubricsService(prisma as never, audit, gamification);
+        const svc = new RubricsService(prisma as never, audit);
         return { svc, created: () => createdData };
     };
 
@@ -133,7 +131,7 @@ describe('SECURITY: reading reviews requires standing on the submission', () => 
             courseOpening: { findFirst: async () => (over.teaches ? { id: 'o1' } : null) },
             peerReview: { findMany: async () => [{ id: 'pr1', commentAr: 'feedback' }] },
         };
-        const svc = new RubricsService(prisma as never, audit, gamification);
+        const svc = new RubricsService(prisma as never, audit);
         return svc;
     };
 
@@ -197,7 +195,7 @@ describe('SECURITY: quiz answers are never handed back', () => {
                 upsert: async (a: any) => { upserted = a; return { id: 'a1' }; },
             },
         };
-        const svc = new QuizzesService(prisma as never, gamification);
+        const svc = new QuizzesService(prisma as never);
         return { svc, upserted: () => upserted };
     };
 
@@ -254,7 +252,6 @@ describe('SECURITY: openings are only writable by someone who manages them', () 
                 updateMany: async () => ({ count: 0 }),
             },
             user: { findUnique: async () => ({ id: 'instructor-x' }) },
-            wishlist: { findMany: async () => [{ userId: 'watcher-1' }] },
             reservation: { updateMany: async () => ({ count: 0 }) },
             enrollment: { findMany: async () => [] },
         };
@@ -274,8 +271,7 @@ describe('SECURITY: openings are only writable by someone who manages them', () 
     });
 
     test('a different instructor cannot publish the batch', async () => {
-        // Publishing emails every wishlist user and flips PENDING reservations
-        // to "payment due".
+        // Publishing flips PENDING reservations to "payment due".
         const { svc, notified } = build();
         await assert.rejects(
             () => svc.setOpeningPublished('o1', true, 'instructor-attacker', Role.INSTRUCTOR),
@@ -333,46 +329,6 @@ describe('SECURITY: login does not disclose that an account exists', () => {
             (err: unknown) =>
                 err instanceof UnauthorizedException && /invalid credentials/i.test(err.message),
         );
-    });
-});
-
-describe('SECURITY: gamification lookup is limited to the owner or an admin', () => {
-    const build = (points: Record<string, unknown> | null) => {
-        const prisma = {
-            userPoints: {
-                findUnique: async () => points,
-                create: async () => points ?? { id: 'p0', userId: 'u0', points: 0, level: 1, streak: 0 },
-            },
-            userBadge: { findMany: async () => [] },
-        };
-        return new GamificationService(prisma as never);
-    };
-
-    test('a user may read their own gamification', async () => {
-        const svc = build({ id: 'p1', userId: 'u1', points: 10, level: 1, streak: 0 });
-        const out = await svc.getUserGamificationForViewer('u1', 'u1', Role.STUDENT);
-        assert.equal(out.points, 10);
-    });
-
-    test('an admin may read another user gamification', async () => {
-        const svc = build({ id: 'p2', userId: 'u2', points: 55, level: 1, streak: 3 });
-        const out = await svc.getUserGamificationForViewer('u2', 'admin', Role.ADMIN);
-        assert.equal(out.points, 55);
-    });
-
-    test('another student cannot read a stranger gamification', async () => {
-        const svc = build(null);
-        await assert.rejects(
-            () => svc.getUserGamificationForViewer('u2', 'u1', Role.STUDENT),
-            (err: unknown) => err instanceof ForbiddenException && /access denied/i.test(err.message),
-        );
-    });
-
-    test('the lookup exposes no badge until one is actually earned', async () => {
-        const svc = build({ id: 'p3', userId: 'u3', points: 0, level: 1, streak: 0 });
-        const out = await svc.getUserGamificationForViewer('u3', 'u3', Role.STUDENT);
-        assert.ok(Array.isArray(out.allBadges));
-        assert.equal(out.allBadges.every((b: { earned: boolean }) => b.earned === false), true);
     });
 });
 

@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from 'react';
+import Link from 'next/link';
 import { api, getErrorMessage } from '@/lib/api';
 import { useFetchData } from '@/lib/useFetchData';
 import { useI18n } from '@/lib/i18n-context';
@@ -8,13 +9,23 @@ import { useAuth } from '@/lib/auth-context';
 import toast from 'react-hot-toast';
 import {
     BookOpen, ChevronDown, GraduationCap, Layers, Loader, Lock, Pencil,
-    Plus, Route, Trash2, X, Zap,
+    Plus, Route, Trash2, X,
 } from 'lucide-react';
 
 interface PathCourseItem {
     id: string;
     orderIndex: number;
-    course?: { id: string; titleAr?: string | null; titleEn?: string | null } | null;
+    course?: {
+        id: string;
+        titleAr?: string | null;
+        titleEn?: string | null;
+    } | null;
+}
+
+interface CourseOption {
+    id: string;
+    titleAr?: string | null;
+    titleEn?: string | null;
 }
 
 interface LearningPathData {
@@ -37,6 +48,7 @@ interface PathForm {
     descriptionEn: string;
     coverImageUrl: string;
     isPublished: boolean;
+    courseIds: string[];
 }
 
 interface Props {
@@ -50,6 +62,7 @@ const emptyPathForm: PathForm = {
     descriptionEn: '',
     coverImageUrl: '',
     isPublished: false,
+    courseIds: [],
 };
 
 const GRADIENTS = [
@@ -64,13 +77,17 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
     const isAr = locale === 'ar';
     const { user } = useAuth();
 
-    const canManage = ['ADMIN', 'INSTRUCTOR'].includes(user?.role || '');
+    const canManage = ['ADMIN', 'COURSE_MANAGER'].includes(user?.role || '');
     const manage = mode === 'manage' && canManage;
 
-    const { data, loading, error, refetch } = useFetchData<LearningPathData[]>('/learning-paths');
+    const { data, loading, error, refetch } = useFetchData<LearningPathData[]>(
+        mode === 'manage' ? (canManage ? '/learning-paths/manage' : null) : '/learning-paths',
+    );
+    const { data: courses } = useFetchData<CourseOption[]>(
+        manage ? '/learning-paths/manage/courses' : null,
+    );
 
     const [expandedId, setExpandedId] = useState<string | null>(null);
-    const [enrollingId, setEnrollingId] = useState<string | null>(null);
     const [deletingId, setDeletingId] = useState<string | null>(null);
     const [modalOpen, setModalOpen] = useState(false);
     const [editing, setEditing] = useState<LearningPathData | null>(null);
@@ -97,6 +114,10 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
             descriptionEn: p.descriptionEn || '',
             coverImageUrl: p.coverImageUrl || '',
             isPublished: !!p.isPublished,
+            courseIds: [...(p.courses || [])]
+                .sort((a, b) => a.orderIndex - b.orderIndex)
+                .map((item) => item.course?.id)
+                .filter((id): id is string => !!id),
         });
         setModalOpen(true);
     };
@@ -113,8 +134,9 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
                 titleEn: form.titleEn.trim(),
                 descriptionAr: form.descriptionAr.trim() || undefined,
                 descriptionEn: form.descriptionEn.trim() || undefined,
-                coverImageUrl: form.coverImageUrl.trim() || undefined,
+                coverImageUrl: form.coverImageUrl.trim() || null,
                 isPublished: form.isPublished,
+                courseIds: form.courseIds,
             };
             if (editing) {
                 await api.patch(`/learning-paths/${editing.id}`, payload);
@@ -129,21 +151,6 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
             toast.error(getErrorMessage(err) || t('common.error'));
         } finally {
             setSaving(false);
-        }
-    };
-
-    const enroll = async (p: LearningPathData) => {
-        setEnrollingId(p.id);
-        try {
-            await api.post(`/learning-paths/${p.id}/enroll`);
-            const count = p.courses?.length ?? 0;
-            toast.success(count > 0
-                ? (isAr ? `تم تسجيلك في المسار وتفعيل ${count} دورة` : `Enrolled! ${count} course${count === 1 ? '' : 's'} activated`)
-                : (isAr ? 'تم تسجيلك في المسار' : 'Enrolled in learning path'));
-        } catch (err) {
-            toast.error(getErrorMessage(err) || t('common.error'));
-        } finally {
-            setEnrollingId(null);
         }
     };
 
@@ -166,7 +173,7 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
             <div className="bg-brand-navy-dark border border-white/5 rounded-2xl p-8 text-center">
                 <Lock size={32} className="mx-auto text-gray-600 mb-3" />
                 <p className="text-gray-400 font-bold text-sm">
-                    {isAr ? 'إدارة المسارات متاحة للمدراء والمدرسين فقط' : 'Path management is available to admins and instructors only'}
+                    {isAr ? 'إدارة المسارات متاحة لمدير النظام ومدير الدورات فقط' : 'Path management is available to admins and course managers only'}
                 </p>
             </div>
         );
@@ -251,14 +258,18 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
                                                 <p className="text-[11px] text-gray-500 font-bold">{isAr ? 'لا توجد دورات في هذا المسار بعد' : 'No courses in this path yet'}</p>
                                             ) : (
                                                 courses.map((pc, i) => (
-                                                    <div key={pc.id} className="flex items-center gap-2.5 bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2">
+                                                    <Link
+                                                        key={pc.id}
+                                                        href={pc.course ? `/courses/${pc.course.id}` : '/courses'}
+                                                        className="flex items-center gap-2.5 bg-white/[0.02] border border-white/5 rounded-xl px-3 py-2 hover:border-brand-gold/30"
+                                                    >
                                                         <span className="w-6 h-6 rounded-full bg-brand-gold/15 border border-brand-gold/30 text-brand-gold-light text-[11px] font-black flex items-center justify-center shrink-0 tabular-nums">
                                                             {i + 1}
                                                         </span>
                                                         <span className="text-xs font-bold text-gray-200 truncate">
                                                             {pick(pc.course, 'title') || (isAr ? 'دورة' : 'Course')}
                                                         </span>
-                                                    </div>
+                                                    </Link>
                                                 ))
                                             )}
                                         </div>
@@ -272,16 +283,6 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
                                             {isAr ? 'الدورات' : 'Courses'}
                                             <ChevronDown size={13} className={`transition-transform duration-300 ${expanded ? 'rotate-180' : ''}`} />
                                         </button>
-                                        {!manage && (
-                                            <button
-                                                onClick={() => enroll(p)}
-                                                disabled={enrollingId === p.id}
-                                                className="flex-1 inline-flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-black bg-brand-gold text-brand-navy-dark hover:bg-brand-gold-light transition disabled:opacity-50"
-                                            >
-                                                {enrollingId === p.id ? <Loader size={13} className="animate-spin" /> : <Zap size={13} />}
-                                                {isAr ? 'التسجيل في المسار' : 'Enroll'}
-                                            </button>
-                                        )}
                                         {manage && (
                                             <>
                                                 <button
@@ -379,6 +380,54 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
                                     className="w-full px-4 py-2.5 bg-white/5 border border-white/10 rounded-xl text-white placeholder-gray-500 text-sm focus:outline-none focus:ring-2 focus:ring-brand-gold/50"
                                 />
                             </div>
+                            <div>
+                                <div className="flex items-center justify-between gap-2 mb-2">
+                                    <label className="block text-sm font-bold text-gray-300">
+                                        {isAr ? 'دورات المسار' : 'Courses in this path'}
+                                    </label>
+                                    <span className="text-xs text-gray-500">
+                                        {form.courseIds.length} {isAr ? 'مختارة' : 'selected'}
+                                    </span>
+                                </div>
+                                <div className="max-h-52 overflow-y-auto rounded-xl border border-white/10 divide-y divide-white/5">
+                                    {(courses || []).map((course) => {
+                                        const selected = form.courseIds.includes(course.id);
+                                        return (
+                                            <label key={course.id} className="flex items-center gap-3 px-3 py-2.5 cursor-pointer hover:bg-white/5">
+                                                <input
+                                                    type="checkbox"
+                                                    checked={selected}
+                                                    onChange={() => setForm((current) => ({
+                                                        ...current,
+                                                        courseIds: selected
+                                                            ? current.courseIds.filter((id) => id !== course.id)
+                                                            : [...current.courseIds, course.id],
+                                                    }))}
+                                                    className="w-4 h-4 rounded border-white/20 bg-white/5 accent-brand-gold"
+                                                />
+                                                <span className="min-w-0 flex-1 truncate text-sm font-semibold text-gray-200">
+                                                    {pick(course, 'title') || course.id}
+                                                </span>
+                                                <span className="flex items-center gap-2 shrink-0">
+                                                    {selected && (
+                                                        <span className="w-5 h-5 rounded-full bg-brand-gold/15 text-brand-gold-light text-[10px] font-black flex items-center justify-center">
+                                                            {form.courseIds.indexOf(course.id) + 1}
+                                                        </span>
+                                                    )}
+                                                </span>
+                                            </label>
+                                        );
+                                    })}
+                                    {courses?.length === 0 && (
+                                        <p className="px-3 py-4 text-sm text-gray-500">
+                                            {isAr ? 'لا توجد دورات بعد. أضف دورة أولاً.' : 'No courses yet. Create a course first.'}
+                                        </p>
+                                    )}
+                                </div>
+                                <p className="mt-2 text-xs text-gray-500">
+                                    {isAr ? 'يُحفظ ترتيب الدورات بحسب ترتيب اختيارها.' : 'Course order follows the order in which you select them.'}
+                                </p>
+                            </div>
                             <label className="flex items-center gap-2 cursor-pointer">
                                 <input
                                     type="checkbox"
@@ -386,13 +435,13 @@ export default function LearningPathList({ mode = 'browse' }: Props) {
                                     onChange={(e) => setForm({ ...form, isPublished: e.target.checked })}
                                     className="w-4 h-4 rounded border-white/20 bg-white/5 accent-brand-gold cursor-pointer"
                                 />
-                                <span className="text-sm text-gray-300 font-bold">{isAr ? 'منشور (مرئي للطلاب)' : 'Published (visible to students)'}</span>
+                                <span className="text-sm text-gray-300 font-bold">{isAr ? 'منشور (مرئي للطلاب والمدرسين)' : 'Published (visible to students and instructors)'}</span>
                             </label>
                         </div>
                         <div className="flex flex-wrap items-center justify-between gap-3 p-6 border-t border-white/5">
                             <span className="hidden sm:flex items-center gap-1.5 text-[11px] font-bold text-gray-600">
                                 <GraduationCap size={13} />
-                                {isAr ? 'أضف الدورات من صفحة تفاصيل المسار' : 'Add courses from the path details page'}
+                                {isAr ? 'يُحفظ ترتيب الدورات بحسب أرقامها.' : 'The course order is shown by the selected numbers.'}
                             </span>
                             <div className="flex items-center gap-3">
                                 <button

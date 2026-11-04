@@ -1,107 +1,147 @@
-import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
+import { Injectable, NotFoundException, BadRequestException } from '@nestjs/common';
+import { Prisma, Role } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { Role } from '@prisma/client';
+import { CreateLearningPathDto, UpdateLearningPathDto } from './dto/learning-path.dto';
+
+const publicPathInclude = {
+    courses: {
+        include: {
+            course: {
+                select: { id: true, titleAr: true, titleEn: true, categoryAr: true, categoryEn: true },
+            },
+        },
+        orderBy: { orderIndex: 'asc' as const },
+    },
+};
+
+const managedPathInclude = {
+    courses: {
+        include: {
+            course: {
+                select: { id: true, titleAr: true, titleEn: true, categoryAr: true, categoryEn: true },
+            },
+        },
+        orderBy: { orderIndex: 'asc' as const },
+    },
+};
 
 @Injectable()
 export class LearningPathsService {
     constructor(private prisma: PrismaService, private audit: AuditService) {}
 
-    async createPath(dto: { titleAr: string; titleEn: string; descriptionAr?: string; descriptionEn?: string; coverImageUrl?: string; courseIds: string[] }, creatorId: string) {
-        if (!dto.titleAr?.trim() || !dto.titleEn?.trim()) throw new BadRequestException('Titles required');
+    private async validateCourses(courseIds: string[] = []) {
+        if (!courseIds.length) return;
+        const count = await this.prisma.course.count({ where: { id: { in: courseIds } } });
+        if (count !== courseIds.length) throw new BadRequestException('One or more courses do not exist');
+    }
+
+    async createPath(dto: CreateLearningPathDto, creatorId: string) {
+        if (!dto.titleAr.trim() || !dto.titleEn.trim()) {
+            throw new BadRequestException('Titles are required');
+        }
+        const courseIds = dto.courseIds ?? [];
+        await this.validateCourses(courseIds);
+
         const path = await this.prisma.learningPath.create({
             data: {
                 titleAr: dto.titleAr.trim(),
                 titleEn: dto.titleEn.trim(),
-                descriptionAr: dto.descriptionAr || null,
-                descriptionEn: dto.descriptionEn || null,
+                descriptionAr: dto.descriptionAr?.trim() || null,
+                descriptionEn: dto.descriptionEn?.trim() || null,
                 coverImageUrl: dto.coverImageUrl || null,
+                isPublished: dto.isPublished ?? false,
                 creatorId,
                 courses: {
-                    create: (dto.courseIds || []).map((courseId, i) => ({ courseId, orderIndex: i })),
+                    create: courseIds.map((courseId, orderIndex) => ({ courseId, orderIndex })),
                 },
             },
-            include: { courses: { include: { course: true }, orderBy: { orderIndex: 'asc' } } },
+            include: managedPathInclude,
         });
-        await this.audit.logAction(`Created learning path "${dto.titleAr}"`, undefined, creatorId);
+        await this.audit.logAction(`Created learning path "${dto.titleAr.trim()}"`, undefined, creatorId);
         return path;
     }
 
-    async listPaths(isPublished?: boolean) {
+    async listPaths(isPublished = false) {
         return this.prisma.learningPath.findMany({
-            where: isPublished !== undefined ? { isPublished } : {},
-            include: { courses: { include: { course: true }, orderBy: { orderIndex: 'asc' } }, creator: { select: { id: true, email: true } } },
+            where: isPublished ? { isPublished: true } : {},
+            include: {
+                ...(isPublished ? publicPathInclude : managedPathInclude),
+            },
             orderBy: { createdAt: 'desc' },
         });
     }
 
-    async getPath(pathId: string) {
-        const path = await this.prisma.learningPath.findUnique({
-            where: { id: pathId },
-            include: { courses: { include: { course: true }, orderBy: { orderIndex: 'asc' } }, creator: { select: { id: true, email: true } } },
+    listCoursesForManagement() {
+        return this.prisma.course.findMany({
+            select: {
+                id: true,
+                titleAr: true,
+                titleEn: true,
+                categoryAr: true,
+                categoryEn: true,
+            },
+            orderBy: [{ titleAr: 'asc' }, { titleEn: 'asc' }],
+        });
+    }
+
+    async getPath(pathId: string, includeUnpublished = false) {
+        const path = await this.prisma.learningPath.findFirst({
+            where: { id: pathId, ...(includeUnpublished ? {} : { isPublished: true }) },
+            include: {
+                ...(includeUnpublished ? managedPathInclude : publicPathInclude),
+            },
         });
         if (!path) throw new NotFoundException('Learning path not found');
         return path;
     }
 
-    async updatePath(pathId: string, dto: any, userId: string, userRole: Role) {
-        const path = await this.prisma.learningPath.findUnique({ where: { id: pathId } });
-        if (!path) throw new NotFoundException('Learning path not found');
-        if (userRole !== Role.ADMIN && userRole !== Role.COURSE_MANAGER && path.creatorId !== userId) throw new ForbiddenException('Not allowed');
-        if (dto.courseIds) {
-            await this.prisma.learningPathCourse.deleteMany({ where: { pathId } });
-            await this.prisma.learningPath.update({
-                where: { id: pathId },
-                data: {
-                    titleAr: dto.titleAr ?? path.titleAr,
-                    titleEn: dto.titleEn ?? path.titleEn,
-                    descriptionAr: dto.descriptionAr !== undefined ? dto.descriptionAr : path.descriptionAr,
-                    descriptionEn: dto.descriptionEn !== undefined ? dto.descriptionEn : path.descriptionEn,
-                    coverImageUrl: dto.coverImageUrl !== undefined ? dto.coverImageUrl : path.coverImageUrl,
-                    isPublished: dto.isPublished !== undefined ? dto.isPublished : path.isPublished,
-                    courses: { create: dto.courseIds.map((courseId: string, i: number) => ({ courseId, orderIndex: i })) },
-                },
-            });
-        } else {
-            await this.prisma.learningPath.update({
-                where: { id: pathId },
-                data: {
-                    titleAr: dto.titleAr ?? path.titleAr,
-                    titleEn: dto.titleEn ?? path.titleEn,
-                    descriptionAr: dto.descriptionAr !== undefined ? dto.descriptionAr : path.descriptionAr,
-                    descriptionEn: dto.descriptionEn !== undefined ? dto.descriptionEn : path.descriptionEn,
-                    coverImageUrl: dto.coverImageUrl !== undefined ? dto.coverImageUrl : path.coverImageUrl,
-                    isPublished: dto.isPublished !== undefined ? dto.isPublished : path.isPublished,
-                },
-            });
+    async updatePath(pathId: string, dto: UpdateLearningPathDto, userId: string, userRole: Role) {
+        if (userRole !== Role.ADMIN && userRole !== Role.COURSE_MANAGER) {
+            throw new NotFoundException('Learning path not found');
         }
-        return this.getPath(pathId);
+        if (dto.titleAr !== undefined && !dto.titleAr.trim()) {
+            throw new BadRequestException('Arabic title cannot be empty');
+        }
+        if (dto.titleEn !== undefined && !dto.titleEn.trim()) {
+            throw new BadRequestException('English title cannot be empty');
+        }
+
+        const existing = await this.prisma.learningPath.findUnique({ where: { id: pathId } });
+        if (!existing) throw new NotFoundException('Learning path not found');
+        if (dto.courseIds !== undefined) await this.validateCourses(dto.courseIds);
+
+        const updateData: Prisma.LearningPathUpdateInput = {
+            ...(dto.titleAr !== undefined ? { titleAr: dto.titleAr.trim() } : {}),
+            ...(dto.titleEn !== undefined ? { titleEn: dto.titleEn.trim() } : {}),
+            ...(dto.descriptionAr !== undefined ? { descriptionAr: dto.descriptionAr.trim() || null } : {}),
+            ...(dto.descriptionEn !== undefined ? { descriptionEn: dto.descriptionEn.trim() || null } : {}),
+            ...(dto.coverImageUrl !== undefined ? { coverImageUrl: dto.coverImageUrl || null } : {}),
+            ...(dto.isPublished !== undefined ? { isPublished: dto.isPublished } : {}),
+        };
+
+        await this.prisma.$transaction(async (tx) => {
+            if (dto.courseIds !== undefined) {
+                await tx.learningPathCourse.deleteMany({ where: { pathId } });
+                updateData.courses = {
+                    create: dto.courseIds.map((courseId, orderIndex) => ({ courseId, orderIndex })),
+                };
+            }
+            await tx.learningPath.update({ where: { id: pathId }, data: updateData });
+        });
+
+        await this.audit.logAction(`Updated learning path "${existing.titleAr}"`, undefined, userId);
+        return this.getPath(pathId, true);
     }
 
     async deletePath(pathId: string, userId: string, userRole: Role) {
+        if (userRole !== Role.ADMIN && userRole !== Role.COURSE_MANAGER) {
+            throw new NotFoundException('Learning path not found');
+        }
         const path = await this.prisma.learningPath.findUnique({ where: { id: pathId } });
         if (!path) throw new NotFoundException('Learning path not found');
-        if (userRole !== Role.ADMIN && userRole !== Role.COURSE_MANAGER && path.creatorId !== userId) throw new ForbiddenException('Not allowed');
         await this.prisma.learningPath.delete({ where: { id: pathId } });
+        await this.audit.logAction(`Deleted learning path "${path.titleAr}"`, undefined, userId);
         return { ok: true };
-    }
-
-    async enrollPath(pathId: string, userId: string) {
-        const path = await this.getPath(pathId);
-        const enrolled = [];
-        for (const c of path.courses) {
-            const openings = await this.prisma.courseOpening.findMany({ where: { courseId: c.course.id, isPublished: true } });
-            const firstOpening = openings[0];
-            if (firstOpening) {
-                const existing = await this.prisma.enrollment.findFirst({ where: { studentId: userId, openingId: firstOpening.id } });
-                if (!existing) {
-                    await this.prisma.enrollment.create({
-                        data: { studentId: userId, openingId: firstOpening.id, courseId: c.course.id, status: 'PENDING' },
-                    });
-                    enrolled.push(c.course.id);
-                }
-            }
-        }
-        return { enrolled, total: path.courses.length };
     }
 }

@@ -1,12 +1,11 @@
 import { Injectable, ConflictException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { CourseContentType, DeliveryMode, EnrollmentStatus } from '@prisma/client';
 import { PrismaService } from '../prisma/prisma.service';
-import { GamificationService } from '../gamification/gamification.service';
 import { Classroom, resolveClassroom } from '../common/classroom';
 
 @Injectable()
 export class LessonsService {
-  constructor(private prisma: PrismaService, private gamification: GamificationService) {}
+  constructor(private prisma: PrismaService) {}
 
   async syllabus(courseId: string) {
     const course = await this.prisma.course.findUnique({
@@ -284,29 +283,13 @@ export class LessonsService {
       });
     }
 
-    const before = await this.courseProgress(enrollment.courseId, studentId);
-    const firstCompletion = !before.modules.some((m: any) => m.id === moduleId && m.completed);
-
     await this.prisma.lessonProgress.upsert({
       where: { enrollmentId_moduleId: { enrollmentId, moduleId } },
       update: { completedAt: new Date() },
       create: { enrollmentId, moduleId },
     });
 
-    // Points belong to the transition, not to the request. Re-posting the same
-    // completion used to hand out `lesson_complete` again on every call, and
-    // `course_complete` again on every call made once the course sat at 100%,
-    // so a student could farm an unbounded score and sit on the leaderboard.
-    if (firstCompletion) {
-      try { await this.gamification.addPoints(studentId, 'lesson_complete'); } catch {}
-    }
-
     const progress = await this.courseProgress(enrollment.courseId, studentId);
-    const nowComplete = progress.total > 0 && progress.completed >= progress.total;
-    const wasComplete = before.total > 0 && before.completed >= before.total;
-    if (nowComplete && !wasComplete) {
-      try { await this.gamification.addPoints(studentId, 'course_complete'); } catch {}
-    }
     return progress;
   }
 

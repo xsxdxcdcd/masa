@@ -593,6 +593,46 @@ describe('OPERATIONS: the session cache stays bounded', () => {
         for (let i = 0; i < 10; i++) await svc.resolveSession(request, { userId: null });
         assert.equal(reads, 1, 'expected exactly one lookup for ten requests');
     });
+
+    test('authenticated API tracking records the event without another session write', async () => {
+        let sessionUpdates = 0;
+        let events = 0;
+        const prisma: any = {
+            visitSession: {
+                updateMany: async () => { sessionUpdates++; },
+            },
+            visitEvent: {
+                create: async () => { events++; },
+            },
+        };
+        const svc = new OperationsService(prisma);
+
+        await svc.trackRequest(req(), { statusCode: 200 } as never, Date.now(), 'session-1');
+
+        assert.equal(events, 1, 'the request must still be recorded');
+        assert.equal(sessionUpdates, 0, 'session promotion must not be repeated for each API request');
+    });
+
+    test('an authenticated request promotes an anonymous session once', async () => {
+        let sessionUpdates = 0;
+        const prisma: any = {
+            visitSession: {
+                findUnique: async () => ({ id: 'existing', userId: null }),
+                update: async ({ data }: any) => {
+                    sessionUpdates++;
+                    assert.equal(data.userId, 'user-1');
+                    assert.equal(data.isAuthenticated, true);
+                },
+            },
+        };
+        const svc = new OperationsService(prisma);
+        const request = req({ cookie: 'laxalab_vid=33333333-3333-4333-8333-333333333333' });
+
+        await svc.resolveSession(request, { userId: 'user-1' });
+        await svc.resolveSession(request, { userId: 'user-1' });
+
+        assert.equal(sessionUpdates, 1, 'cached requests must not repeat the promotion write');
+    });
 });
 
 describe('OPERATIONS: concurrent first visits do not error', () => {

@@ -10,11 +10,10 @@ import {
     ArrowLeft, Award, Loader, PanelLeftClose, PanelLeft, Search, ChevronDown,
     PlayCircle, FileText, ClipboardList, Link2, Clock, CheckCircle, Play, Pause,
     RotateCcw, Volume2, VolumeX, Maximize, ZoomIn, ZoomOut, Maximize2, Download,
-    UploadCloud, StickyNote, MessagesSquare, Send, X, Gift, BookMarked, MessageCircle, ArrowRight,
+    UploadCloud, StickyNote, MessagesSquare, Send, X, BookMarked, MessageCircle, ArrowRight,
     Bell, Megaphone, Calendar, User, AlertTriangle, Video, CalendarDays, Radio,
 } from 'lucide-react';
 import CourseChat from '@/components/CourseChat';
-import DiscussionForum from '@/components/DiscussionForum';
 import InteractiveQuiz from '@/components/InteractiveQuiz';
 import StudentSessionList, { StudentLiveSession } from '@/components/StudentSessionList';
 
@@ -115,7 +114,7 @@ interface CourseData {
 }
 
 type LessonKind = 'video' | 'pdf' | 'task' | 'resource';
-type DeckTab = 'overview' | 'notes' | 'sessions' | 'discussions' | 'quizzes' | 'batch' | 'direct';
+type DeckTab = 'overview' | 'notes' | 'sessions' | 'quizzes' | 'batch' | 'direct';
 
 interface Announcement {
     id: string;
@@ -661,7 +660,6 @@ export default function CoursePlayer({ courseId }: Props) {
             ...((progress?.liveSessions?.length ?? 0) > 0
                 ? [{ key: 'sessions' as DeckTab, label: t('liveSessions.heading'), icon: CalendarDays }]
                 : []),
-            { key: 'discussions', label: isAr ? 'النقاش' : 'Discuss', icon: MessageCircle },
             { key: 'quizzes', label: isAr ? 'اختبار' : 'Quiz', icon: ClipboardList },
             { key: 'batch', label: t('player.tab_batch'), icon: MessagesSquare },
             { key: 'direct', label: t('player.tab_direct'), icon: MessageCircle },
@@ -756,9 +754,6 @@ export default function CoursePlayer({ courseId }: Props) {
                                     : t('liveSessions.in_person_no_room')}
                             />
                         </div>
-                    )}
-                    {deckTab === 'discussions' && selected && (
-                        <DiscussionForum moduleId={selected.id} courseId={courseId} />
                     )}
                     {deckTab === 'quizzes' && progress?.openingId && (
                         <div className="space-y-4">

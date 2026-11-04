@@ -3,6 +3,8 @@ FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
+ENV NODE_OPTIONS="--max-old-space-size=400"
+
 # Build-time placeholder so @prisma/client postinstall + generate succeed.
 # Runtime env vars from Railway OVERRIDE this; generate never connects to the DB.
 ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
@@ -67,8 +69,9 @@ COPY docker-entrypoint.sh /usr/local/bin/docker-entrypoint.sh
 RUN chmod +x /usr/local/bin/docker-entrypoint.sh
 ENTRYPOINT ["/usr/local/bin/docker-entrypoint.sh"]
 
-# Expose port (nginx proxies /api/ to backend:3000)
-EXPOSE 3000
+# Expose port (nginx proxies /api/ to backend:10000)
+EXPOSE 10000
+
 
 # Start the application with automated migration only (no seeding in production)
 CMD ["sh", "-c", "npx prisma generate && npx prisma migrate deploy && node dist/main.js"]

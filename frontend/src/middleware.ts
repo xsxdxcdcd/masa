@@ -9,6 +9,7 @@ type Locale = 'ar' | 'en';
 // primary language, so the old key is deliberately ignored and the new default
 // applies once. From here on an explicit choice is what selects the language.
 const LOCALE_COOKIE = 'laxalab_locale_v2';
+const INTERNAL_LOCALE_REWRITE_HEADER = 'x-laxalab-internal-locale-rewrite';
 const DEFAULT_LOCALE: Locale = 'ar';
 const SKIP_PATHS = ['/sitemap.xml', '/robots.txt', '/manifest.webmanifest', '/favicon.ico'];
 const EXT_RE = /\.(png|jpe?g|svg|gif|webp|ico|avif|woff2?|ttf|eot|otf|pdf|mp4|webm)$/i;
@@ -105,6 +106,12 @@ export function middleware(req: NextRequest) {
         return notFound();
     }
 
+    // The internal rewrite from /ar/... to the actual route re-enters
+    // middleware. Mark that request so it does not redirect back to /ar/...
+    if (req.headers.get(INTERNAL_LOCALE_REWRITE_HEADER) === '1') {
+        return NextResponse.next();
+    }
+
     if (hasPrefix) {
         const locale = first as Locale;
         const url = req.nextUrl.clone();
@@ -113,7 +120,14 @@ export function middleware(req: NextRequest) {
         url.pathname = APP_MODE === 'admin' && (base === '/' || base === '/dashboard')
             ? '/dashboard/admin'
             : base;
-        const res = NextResponse.rewrite(url);
+        const requestHeaders = new Headers(req.headers);
+        requestHeaders.set(INTERNAL_LOCALE_REWRITE_HEADER, '1');
+        const forwardedCookies = requestHeaders.get('cookie')?.split(';')
+            .map((cookie) => cookie.trim())
+            .filter((cookie) => cookie && !cookie.startsWith(`${LOCALE_COOKIE}=`)) ?? [];
+        forwardedCookies.push(`${LOCALE_COOKIE}=${locale}`);
+        requestHeaders.set('cookie', forwardedCookies.join('; '));
+        const res = NextResponse.rewrite(url, { request: { headers: requestHeaders } });
         setLocaleCookie(res, locale);
         return res;
     }

@@ -1,12 +1,11 @@
 import { Injectable, NotFoundException, ForbiddenException, BadRequestException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { AuditService } from '../audit/audit.service';
-import { GamificationService } from '../gamification/gamification.service';
 import { Role } from '@prisma/client';
 
 @Injectable()
 export class RubricsService {
-    constructor(private prisma: PrismaService, private audit: AuditService, private gamification: GamificationService) {}
+    constructor(private prisma: PrismaService, private audit: AuditService) {}
 
     async createRubric(taskId: string, dto: { titleAr: string; titleEn: string; criteria: { titleAr: string; titleEn: string; descriptionAr?: string; descriptionEn?: string; maxScore: number }[] }, userId: string, userRole: Role) {
         const task = await this.prisma.courseTask.findUnique({ where: { id: taskId } });
@@ -123,7 +122,6 @@ export class RubricsService {
             include: { criterionScores: { include: { criterion: true } } },
         });
         await this.audit.logAction(`Peer review submitted for submission ${submissionId}`, undefined, reviewerId);
-        this.gamification.addPoints(reviewerId, 'peer_review').catch(() => {});
         return review;
     }
 

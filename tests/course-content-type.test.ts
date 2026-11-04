@@ -287,7 +287,7 @@ describe('CoursesService enforces the type on write', () => {
 
 describe('the player is told which surface to lead with', () => {
     function lessons(prisma: any) {
-        return new LessonsService(prisma as any, { award: () => Promise.resolve() } as any);
+        return new LessonsService(prisma as any);
     }
 
     const prismaFor = (opening: any) => ({

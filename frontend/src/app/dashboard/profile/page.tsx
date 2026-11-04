@@ -11,7 +11,7 @@ import { useRouter, useSearchParams } from 'next/navigation';
 import {
     UserRound, Mail, ShieldCheck, Calendar, Phone, MapPin, FileText,
     Edit3, Check, X, BadgeCheck, KeyRound, GraduationCap, Download, ShieldAlert,
-    Users, UserCog, Trophy, Flame, Globe2, BookOpen, Award, Clock,
+    Users, UserCog, Trophy, Globe2, BookOpen, Award, Clock,
     Play, Eye, Share2, Camera, Cake, Briefcase,
 } from 'lucide-react';
 import Link from 'next/link';
@@ -30,7 +30,6 @@ interface MyProfile {
     };
 }
 
-/** GET /gamification/me — the level badge in the hero. */
 /** GET /analytics/me — the only source of learning hours and completions. */
 interface AnalyticsMe {
     totalHours: number;
@@ -57,23 +56,6 @@ interface MyCertificate {
     verificationStatus: string;
     printedAt?: string | null;
     course: { id: string; titleAr: string | null; titleEn: string | null; certificateIssued: boolean } | null;
-}
-
-interface GamificationBadge {
-    type: string;
-    nameAr: string;
-    nameEn: string;
-    icon: string;
-    earned: boolean;
-}
-
-interface GamificationMe {
-    points: number;
-    level: number;
-    streak: number;
-    xpInLevel: number;
-    xpToNextLevel: number;
-    allBadges?: GamificationBadge[];
 }
 
 const TABS = [
@@ -153,10 +135,6 @@ function ProfileContent() {
     const localized = (ar?: string | null, en?: string | null) =>
         (locale === 'ar' ? (ar || en) : (en || ar)) || '';
     const { data: profile, loading, error, refetch } = useFetchData<MyProfile>('/users/me');
-    // Reused rather than re-counted: the platform already tracks points/level
-    // and study sessions, so the hero and the stats bar read those numbers
-    // instead of growing a parallel profile-stats endpoint.
-    const { data: gamification } = useFetchData<GamificationMe>('/gamification/me');
     // Learning hours and completions are a student-only resource. Passing null
     // keeps a 403 off the wire for instructors and staff, and the stats bar
     // renders those two cards as unavailable instead of showing a fake zero.
@@ -467,19 +445,6 @@ function ProfileContent() {
                                     <p className="text-brand-mist/90 mt-1.5 font-semibold truncate" dir="ltr">{profile.email}</p>
 
                                     <div className="flex flex-wrap gap-2 mt-4">
-                                        {/* Level comes from the points the learner
-                                            already earned; it is not a separate
-                                            profile flag that could drift. */}
-                                        {gamification && (
-                                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-brand-gold text-brand-navy text-xs font-black shadow-sm shadow-brand-gold/30">
-                                                <Trophy size={13} /> {t('profile.level')} {gamification.level}
-                                            </span>
-                                        )}
-                                        {gamification && gamification.streak > 0 && (
-                                            <span className="inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-orange-400/15 text-orange-200 text-xs font-black">
-                                                <Flame size={13} /> {gamification.streak}
-                                            </span>
-                                        )}
                                         <span className="px-3.5 py-1.5 rounded-full bg-white/10 text-brand-mist/80 text-xs font-semibold backdrop-blur">
                                             {roleLabel}
                                         </span>
@@ -612,27 +577,6 @@ function ProfileContent() {
 
                         {activeTab === 'certificates' && (
                             <div className="space-y-6">
-                                {/* Badges */}
-                                {gamification?.allBadges && (
-                                    <div className="bg-white dark:bg-brand-navy-dark border border-gray-200 dark:border-white/5 rounded-2xl shadow-sm p-6">
-                                        <h3 className="font-black text-brand-navy dark:text-white mb-4">{t('profile.badges')}</h3>
-                                        <div className="flex flex-wrap gap-2">
-                                            {gamification.allBadges.map((b) => (
-                                                <span
-                                                    key={b.type}
-                                                    className={`px-3 py-1.5 rounded-full text-xs font-black ${
-                                                        b.earned
-                                                            ? 'bg-brand-gold/15 text-brand-gold-dark dark:text-brand-gold-light'
-                                                            : 'bg-gray-100 dark:bg-white/5 text-gray-400 dark:text-gray-500 line-through'
-                                                    }`}
-                                                >
-                                                    {localized(b.nameAr, b.nameEn)}
-                                                </span>
-                                            ))}
-                                        </div>
-                                    </div>
-                                )}
-
                                 {/* Certificates */}
                                 {!certificates?.length ? (
                                     <EmptyState icon={Award} text={t('profile.no_certificates')} />

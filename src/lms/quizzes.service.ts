@@ -1,10 +1,9 @@
 import { Injectable, BadRequestException, ForbiddenException, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
-import { GamificationService } from '../gamification/gamification.service';
 
 @Injectable()
 export class QuizzesService {
-  constructor(private prisma: PrismaService, private gamification: GamificationService) {}
+  constructor(private prisma: PrismaService) {}
 
   private stripAnswers(quiz: any) {
     if (!quiz) return quiz;
@@ -162,12 +161,6 @@ export class QuizzesService {
       update: { score: bestScore, passed, answers: answers as object },
       create: { quizId, enrollmentId, score: result.score, passed: result.passed, answers: answers as object },
     });
-
-    if (result.passed) {
-      try {
-        await this.gamification.addPoints(studentId, result.score === 100 ? 'quiz_perfect' : 'quiz_pass');
-      } catch {}
-    }
 
     return { attempt, score: bestScore, passed, details: result.details };
   }

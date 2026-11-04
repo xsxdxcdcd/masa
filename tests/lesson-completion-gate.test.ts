@@ -6,8 +6,7 @@ import { LessonsService } from '../src/lms/lessons.service';
  * Completion gate for a lesson that carries required work.
  *
  * `markComplete` wrote `LessonProgress` unconditionally, so a module with an
- * assignment or a quiz in it could be claimed without submitting anything, and
- * hitting 100% paid out the `course_complete` points. A disabled button in the
+ * assignment or a quiz in it could be claimed without submitting anything. A disabled button in the
  * player is not a gate — this service is the only writer of that row — so these
  * drive the real service against a recording double and assert both halves of
  * the contract: the refusal when work is owed, and the write when it is not.
@@ -25,7 +24,6 @@ function makeHarness(h: {
     progress?: { moduleId: string; completedAt: Date | null }[];
 }) {
     const calls: Rec[] = [];
-    const awarded: string[] = [];
     let upserted: any = null;
 
     const prisma: any = {
@@ -86,13 +84,8 @@ function makeHarness(h: {
         },
     };
 
-    const gamification: any = {
-        addPoints: async (_userId: string, reason: string) => {
-            awarded.push(reason);
-        },
-    };
-    const service = new LessonsService(prisma, gamification);
-    return { service, calls, awarded, get upserted() { return upserted; } };
+    const service = new LessonsService(prisma);
+    return { service, calls, get upserted() { return upserted; } };
 }
 
 const module1 = { id: 'mod-1', courseId: 'crs-1', titleAr: 'درس', titleEn: 'Lesson' };
@@ -227,86 +220,5 @@ describe('lesson completion gate', () => {
         const h = makeHarness({ modules: [module1], tasks: [{ moduleId: 'mod-1', submissions: [] }] });
         await assert.rejects(() => h.service.markComplete('enr-1', 'mod-1', 'someone-else'));
         assert.equal(h.upserted, null);
-    });
-});
-
-/**
- * Points are paid for the transition, not for the request.
- *
- * `markComplete` awarded `lesson_complete` on every call and `course_complete`
- * on every call made while the course sat at 100%. Both routes are unauthenticated
- * by anything but "you own this enrollment", so re-posting one completion farmed
- * an unbounded score and pinned the leaderboard. The service is the only place
- * that knows whether the lesson just became complete, so that is where the award
- * belongs.
- */
-describe('completion points are awarded once per transition', () => {
-    // Two modules, so completing one is not also the end of the course and the
-    // `course_complete` award stays out of these assertions.
-    const mod1 = { id: 'mod-1', courseId: 'crs-1', titleAr: 'درس', titleEn: 'Lesson' };
-    const mod2 = { id: 'mod-2', courseId: 'crs-1', titleAr: 'درس ٢', titleEn: 'Lesson 2' };
-
-    test('the first completion pays lesson_complete', async () => {
-        const h = makeHarness({ modules: [mod1, mod2], tasks: [], quizzes: [] });
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        assert.deepEqual(h.awarded, ['lesson_complete']);
-    });
-
-    test('re-posting the same completion pays nothing the second time', async () => {
-        const h = makeHarness({ modules: [mod1, mod2], tasks: [], quizzes: [] });
-
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-
-        assert.deepEqual(h.awarded, ['lesson_complete'], 'a replayed request must not pay again');
-    });
-
-    test('a lesson already recorded as complete pays nothing', async () => {
-        const h = makeHarness({
-            modules: [mod1, mod2],
-            tasks: [],
-            quizzes: [],
-            progress: [{ moduleId: 'mod-1', completedAt: new Date() }],
-        });
-
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        assert.deepEqual(h.awarded, []);
-    });
-
-    test('course_complete is paid only on the transition into 100%', async () => {
-        const h = makeHarness({ modules: [mod1, mod2], tasks: [], quizzes: [] });
-
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        assert.deepEqual(h.awarded, ['lesson_complete'], 'partial progress must not pay course_complete');
-
-        await h.service.markComplete('enr-1', 'mod-2', 'stu-1');
-        assert.deepEqual(h.awarded, ['lesson_complete', 'lesson_complete', 'course_complete']);
-
-        // Anything further now sits at 100% and must be silent.
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        await h.service.markComplete('enr-1', 'mod-2', 'stu-1');
-        assert.deepEqual(
-            h.awarded,
-            ['lesson_complete', 'lesson_complete', 'course_complete'],
-            'a finished course must not pay course_complete again',
-        );
-    });
-
-    test('the last module of a single-lesson course pays both, exactly once', async () => {
-        const h = makeHarness({ modules: [module1], tasks: [], quizzes: [] });
-
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        assert.deepEqual(h.awarded, ['lesson_complete', 'course_complete']);
-
-        await h.service.markComplete('enr-1', 'mod-1', 'stu-1');
-        assert.deepEqual(h.awarded, ['lesson_complete', 'course_complete']);
-    });
-
-    test('a refused completion pays nothing at all', async () => {
-        const h = makeHarness({ modules: [mod1, mod2], tasks: [{ moduleId: 'mod-1', submissions: [] }] });
-
-        await assert.rejects(() => h.service.markComplete('enr-1', 'mod-1', 'stu-1'));
-        assert.deepEqual(h.awarded, []);
     });
 });

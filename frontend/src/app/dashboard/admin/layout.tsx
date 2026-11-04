@@ -8,7 +8,7 @@ import { usePathname, useRouter } from 'next/navigation';
 import { useEffect, useMemo } from 'react';
 import {
     LayoutDashboard, BookOpen, CalendarClock, CalendarPlus, Users, Wallet, GraduationCap, CreditCard, Settings, ShieldAlert, LifeBuoy,
-    MessageCircle, Megaphone, Flag,
+    MessageCircle, Megaphone, Flag, Route,
     type LucideIcon,
 } from 'lucide-react';
 
@@ -32,6 +32,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         { href: '/dashboard/admin', label: t('admin.nav_overview'), icon: LayoutDashboard, roles: ['ADMIN'] },
         { href: '/dashboard/admin/courses', label: t('admin.nav_courses'), icon: BookOpen, roles: ['ADMIN', 'COURSE_MANAGER'] },
         { href: '/dashboard/admin/openings', label: t('admin.nav_openings'), icon: CalendarClock, roles: ['ADMIN', 'COURSE_MANAGER'] },
+        { href: '/dashboard/admin/learning-paths', label: t('admin.nav_learning_paths'), icon: Route, roles: ['ADMIN', 'COURSE_MANAGER'] },
         { href: '/dashboard/admin/ended', label: t('admin.nav_ended'), icon: Flag, roles: ['ADMIN', 'COURSE_MANAGER'] },
         { href: '/dashboard/admin/users', label: t('admin.nav_users'), icon: Users, roles: ['ADMIN'] },
         { href: '/dashboard/admin/finance', label: t('admin.nav_finance'), icon: Wallet, roles: ['FINANCE', 'ADMIN'] },

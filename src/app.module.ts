@@ -31,9 +31,7 @@ import { ConsentModule } from './consent/consent.module';
 import { PublicModule } from './public/public.module';
 import { ChatModule } from './chat/chat.module';
 import { AnnouncementsModule } from './announcements/announcements.module';
-import { DiscussionsModule } from './discussions/discussions.module';
 import { RatingsModule } from './ratings/ratings.module';
-import { GamificationModule } from './gamification/gamification.module';
 import { LearningPathsModule } from './learning-paths/learning-paths.module';
 import { CalendarModule } from './calendar/calendar.module';
 import { RubricsModule } from './rubrics/rubrics.module';
@@ -78,9 +76,7 @@ import { OperationsModule } from './operations/operations.module';
         PublicModule,
         ChatModule,
         AnnouncementsModule,
-        DiscussionsModule,
         RatingsModule,
-        GamificationModule,
         LearningPathsModule,
         CalendarModule,
         RubricsModule,

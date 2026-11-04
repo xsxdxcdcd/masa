@@ -9,10 +9,10 @@ import { Target, Globe2, Medal, ShieldCheck, Sparkles, HeartHandshake } from 'lu
 const VALUES = [
     { icon: Target, titleAr: 'التعلم العملي', titleEn: 'Hands-on Learning', descAr: 'دورات مبنية على مشاريع واقعية وتطبيق مباشر يضمن إتقان المهارة فعلياً.', descEn: 'Courses built on real-world projects and direct application that ensure skills are truly mastered.' },
     { icon: Globe2, titleAr: 'ثنائية اللغة', titleEn: 'Bilingual by Design', descAr: 'محتوى عربي وإنجليزي أصيل ليصل إلى متعلّمين من كل أنحاء العالم.', descEn: 'Genuinely Arabic and English content that reaches learners everywhere in the world.' },
-    { icon: Medal, titleAr: 'شهادات معتمدة', titleEn: 'Accredited Certificates', descAr: 'شهادات ذات رموز تحقق رسمية يمكن أي جهة التحقق من صحتها.', descEn: 'Certificates with official verification codes that any party can validate.' },
+    { icon: Medal, titleAr: 'شهادات قابلة للتحقق', titleEn: 'Verifiable Certificates', descAr: 'يمكن التحقق من صحة الشهادة باستخدام رمزها الخاص.', descEn: 'Certificate authenticity can be checked using its unique code.' },
     { icon: ShieldCheck, titleAr: 'خصوصية وأمان', titleEn: 'Privacy & Security', descAr: 'نلتزم بأعلى معايير حماية البيانات والامتثال للأنظمة العالمية.', descEn: 'We follow the highest data-protection standards and international compliance.' },
-    { icon: Sparkles, titleAr: 'مدربون خبراء', titleEn: 'Expert Instructors', descAr: 'نخبة من المدربين المعتمدين ذوي الخبرة الميدانية في مجالاتهم.', descEn: 'A hand-picked group of certified trainers with real field experience.' },
-    { icon: HeartHandshake, titleAr: 'مجتمع داعم', titleEn: 'Supportive Community', descAr: 'منتدى تفاعلي مباشر مع المدرّبين والطلاب لدعم رحلتك التعليمية.', descEn: 'A live forum with instructors and peers that supports your learning journey.' },
+    { icon: Sparkles, titleAr: 'مدربون ذوو خبرة', titleEn: 'Experienced Instructors', descAr: 'مدربون لديهم خبرة عملية في مجالاتهم.', descEn: 'Instructors with practical experience in their fields.' },
+    { icon: HeartHandshake, titleAr: 'تواصل أثناء التعلم', titleEn: 'Learning Conversations', descAr: 'تواصل مع المدرّبين وزملائك عبر محادثات الدورات والدفعات.', descEn: 'Connect with instructors and classmates through course and cohort chats.' },
 ];
 
 export default function AboutContent() {
@@ -38,8 +38,8 @@ export default function AboutContent() {
                 </p>
                 <p className={`leading-relaxed ${dark ? 'text-gray-300' : 'text-gray-600'}`}>
                     {isAr
-                        ? 'اليوم، نقدم تجربة تعلم متكاملة تشمل تتبع التقدم، والواجبات، والاختبارات، والإصدار الآلي للشهادات، فضلاً عن مجتمع داعم من المدربين والطلاب. مهمتنا أن نكون الخيار الأول للتعلم الرقمي الناطق بالعربية، دون المساس بالمعايير الدولية للجودة.'
-                        : 'Today, we offer a complete learning experience including progress tracking, assignments, quizzes, automated certificate issuance, and a supportive community of instructors and students. Our mission is to be the first choice for Arabic-speaking digital learning — without compromising international quality standards.'}
+                        ? 'اليوم، نقدم تجربة تعلم متكاملة تشمل تتبع التقدم، والواجبات، والاختبارات، وإصدار الشهادات القابلة للتحقق، والتواصل عبر محادثات الدورات والدفعات. مهمتنا أن نكون الخيار الأول للتعلم الرقمي الناطق بالعربية، دون المساس بمعايير الجودة.'
+                        : 'Today, we offer a complete learning experience including progress tracking, assignments, quizzes, verifiable certificates, and course and cohort chats. Our mission is to be the first choice for Arabic-speaking digital learning — without compromising on quality.'}
                 </p>
             </section>
 
@@ -61,7 +61,7 @@ export default function AboutContent() {
             <section className="mt-14 rounded-3xl bg-brand-navy p-10 text-center">
                 <h2 className="text-2xl font-black text-white mb-4">{isAr ? 'جاهز للبدء؟' : 'Ready to Start?'}</h2>
                 <p className="text-brand-mist mb-8">
-                    {isAr ? 'انضم إلى آلاف المتعلمين وابدأ رحلتك اليوم.' : 'Join thousands of learners and start your journey today.'}
+                    {isAr ? 'ابدأ رحلتك التعليمية اليوم.' : 'Start your learning journey today.'}
                 </p>
                 <Link
                     href="/courses"

@@ -68,7 +68,6 @@ export const PERMISSIONS = {
     BLOG_WRITE: 'blog:write',
     INSTRUCTORS_READ: 'instructors:read',
     INSTRUCTORS_REVIEW: 'instructors:review',
-    GAMIFICATION_MANAGE: 'gamification:manage',
     OPS_READ: 'ops:read',
     OPS_MANAGE: 'ops:manage',
     SYSTEM_READ: 'system:read',

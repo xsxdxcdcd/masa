@@ -96,11 +96,7 @@ export class OperationsTrackerMiddleware implements NestMiddleware {
             // Fire and forget. The response has already been sent, so a failure
             // here cannot affect what the caller received.
             //
-            // `req.user` is populated by now on guarded routes, so prefer it: it
-            // is the guard-verified identity. The verified token peek above only
-            // fills the gap for routes with no guard at all.
-            const guarded = (req as { user?: { userId?: string } }).user?.userId;
-            void this.ops.trackRequest(req, res, startedAt, req.opsSessionId ?? null, guarded ?? userId);
+            void this.ops.trackRequest(req, res, startedAt, req.opsSessionId ?? null);
         });
 
         next();

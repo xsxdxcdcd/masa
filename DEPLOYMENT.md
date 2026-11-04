@@ -1,17 +1,91 @@
 # Deployment Guide
 
-LaxaLab ships with **two supported production targets**:
+LaxaLab ships with **three supported production targets**:
 
-1. **Railway (primary / managed)** — recommended. No servers to run or patch.
-2. **Self-hosted Docker Compose** (`docker-compose.prod.yml`) — full TLS via
+1. **Render (managed)** — deploy the API and frontend from the included Blueprint.
+2. **Railway (managed)** — no servers to run or patch.
+3. **Self-hosted Docker Compose** (`docker-compose.prod.yml`) — full TLS via
    Let's Encrypt, nginx in front of the Next.js frontend and NestJS backend.
 
 Pick one per environment. The environment variables are the same either way
-(see `.env.production.example`).
+(see `.env.production.example` and `.env.example`).
 
 ---
 
-## Target 1: Railway (recommended)
+## Target 1: Render (managed)
+
+The root `render.yaml` Blueprint creates two Node web services in Singapore:
+`laxalab-api` (NestJS) and `laxalab-web` (Next.js). It does not create another
+database; connect the existing Render PostgreSQL database.
+
+### 1. Create the services
+
+In Render, choose **New → Blueprint**, connect this repository, and deploy the
+Blueprint. If the service names are already taken, rename them in `render.yaml`
+and use the resulting service URLs in the variables below.
+
+### 2. Configure the API service
+
+In **laxalab-api → Environment**, set:
+
+| Variable | Value |
+|---|---|
+| `DATABASE_URL` | The existing database's **Internal Database URL** from Render |
+| `JWT_SECRET` | A new random secret of at least 32 characters |
+| `FRONTEND_URL` | The public URL of `laxalab-web`, without a trailing slash |
+| `NODE_ENV` | `production` (set by the Blueprint) |
+
+Use the Internal Database URL because both services are on Render. Keep it
+private, do not put it in Git, and do not use the external URL for the service.
+Render injects `PORT`; the API listens on it and binds to `0.0.0.0`.
+
+The API start command runs `prisma migrate deploy` before starting NestJS. This
+creates/updates the tables defined by the checked-in Prisma migrations; it does
+not delete the database. Do not run `prisma migrate reset` in production.
+
+### 3. Configure the frontend service
+
+In **laxalab-web → Environment**, set:
+
+| Variable | Value |
+|---|---|
+| `NEXT_PUBLIC_API_URL` | The public API URL, e.g. `https://laxalab-api.onrender.com` |
+| `NEXT_PUBLIC_SITE_URL` | The public frontend URL |
+
+`NEXT_PUBLIC_API_URL` must be the API origin **without `/api`**. These
+`NEXT_PUBLIC_*` values are embedded at build time, so redeploy the frontend
+after changing them. Set `FRONTEND_URL` on the API to the frontend's actual
+Render URL so browser requests pass the API's CORS allow-list.
+
+### 4. Optional services and uploaded files
+
+Set Google OAuth, SMTP, Stripe, and other optional variables in the API
+service's Environment page only if those features are enabled. The Google
+callback URL must be
+`https://<your-api-host>/auth/google/callback`; add that exact URL to the Google
+OAuth client.
+
+Uploaded files are stored under the API's `uploads` directory. Render's
+filesystem is temporary unless you attach a paid persistent disk to the API
+at `/opt/render/project/src/uploads`; without one, uploaded files can disappear
+when the service is redeployed or restarted. The PostgreSQL database itself is
+separate and is not affected by this.
+
+### Database permissions and credentials
+
+Use the username and password provided by Render with the database URL. The
+database owner account is sufficient for Prisma to create and update the
+application schema; no broad `GRANT ALL` or superuser account is needed. The
+website must access data through the API, not by exposing database credentials
+to the browser. Prisma migrations are the controlled way to add or change
+tables and columns.
+
+If a database password has been shared in chat, screenshots, or source code,
+rotate it in Render and update the API's `DATABASE_URL` before deploying.
+
+---
+
+## Target 2: Railway (recommended)
 
 Railway deploys from this GitHub repository. Three services:
 
@@ -89,7 +163,7 @@ counting enrollments with `status NOT IN ('REJECTED','REVOKED')` per opening.
 
 ---
 
-## Target 2: Self-hosted Docker Compose
+## Target 3: Self-hosted Docker Compose
 
 `docker-compose.prod.yml` runs: **Postgres 15**, **NestJS backend**, **Next.js
 frontend**, **nginx** (HTTP→HTTPS, TLS, 100MB uploads), and **certbot** (Let's

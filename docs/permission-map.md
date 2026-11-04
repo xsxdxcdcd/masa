@@ -57,7 +57,7 @@ actions ("review any refund"), never ownership ones ("my refund").
 | assessment | `grades:read`, `grades:write`, `certificates:issue`, `certificates:manage`, `analytics:read` |
 | enrolment | `enrollments:read`, `enrollments:write`, `enrollments:review` |
 | money | `payments:read`, `payments:refund`, `payments:settings`, `refunds:review`, `finance:read`, `finance:write` |
-| governance | `audit:read`, `support:read`, `support:write`, `news:read`, `news:write`, `blog:write`, `instructors:read`, `instructors:review`, `gamification:manage`, `ops:read`, `ops:manage`, `system:read` |
+| governance | `audit:read`, `support:read`, `support:write`, `news:read`, `news:write`, `blog:write`, `instructors:read`, `instructors:review`, `ops:read`, `ops:manage`, `system:read` |
 
 ## 3. Role grants (least privilege)
 
@@ -84,7 +84,7 @@ route today holds the permission that route will be annotated with.
 | `payments:settings` | | | | | ✅ |
 | `refunds:review` | | | | ✅ | ✅ |
 | `finance:read` / `finance:write` | | | | ✅ | ✅ |
-| `audit:read`, `ops:read`, `ops:manage`, `gamification:manage`, `system:read` | | | | | ✅ |
+| `audit:read`, `ops:read`, `ops:manage`, `system:read` | | | | | ✅ |
 | `support:*`, `news:*`, `blog:write`, `instructors:*` | | | ✅ | | ✅ |
 | **(nothing)** | ✅ | | | | |
 
@@ -188,7 +188,6 @@ Two deliberate deviations from the original plan:
 | Controller (all under `/api/admin/…`) | Route | Method | Permission |
 |---|---|---|---|
 | `audit` ✅ *moved from `/audit`* | *(root)* | GET | `audit:read` |
-| `gamification` | `add-points` | POST | `gamification:manage` |
 | `operations` | `unlock` | POST | `ops:manage` |
 | `operations` | `overview`, `timeline`, `events`, `sessions`, `sessions/:id`, `filter-options`, `settings` | GET | `ops:read` |
 | `operations` | `settings/password`, `settings/allowlist`, `settings/allowlist/:userId` | POST/DELETE | `ops:manage` |
@@ -210,8 +209,7 @@ Two deliberate deviations from the original plan:
 
 Left in place, unannotated, because they are not platform routes:
 `operations/track`, `payment-gateways` (active list), `finance/coupons/validate`,
-`announcement-board/active`, `blog` public list/slug, `gamification`
-`me`/`track`/`leaderboard`/`:userId`, `support-tickets` `create`/`my`,
+`announcement-board/active`, `blog` public list/slug, `support-tickets` `create`/`my`,
 `instructor-applications` `my`/`create`, all `courses` GETs, `health/health`,
 `health/uploads/*`. The old `GET /blog/admin/all` no longer exists at all —
 the admin list is `GET /api/admin/blog`.
@@ -221,7 +219,7 @@ the admin list is `GET /api/admin/blog`.
 1. **Ownership routes never get `@RequirePermissions`.** A route whose
    `@Roles` includes `STUDENT` for their *own* record (`enrollments/:id`
    withdraw, `payments/:id/cancel`, `payments/:id/receipt`, `refunds`
-   create, chat, discussions, ratings, `me/*`, progress/notes/submissions,
+   create, chat, ratings, `me/*`, progress/notes/submissions,
    certificates `my`/`print`, `rubrics` reviews, `lms/lessons`, `calendar`
    GETs) keeps "owner OR platform permission" semantics **inside the
    service**: `if (isOwner) allow; else require <permission>`. A plain
@@ -244,9 +242,8 @@ the admin list is `GET /api/admin/blog`.
    hold it, INSTRUCTOR stays excluded by `RolesGuard`).
 3. Cross-boundary calls stay forbidden (learner services do not call admin
    services), as decided in the boundary documents.
-4. Outcome: **75 platform routes annotated across 17 controllers**
-   (`lessons`, `chat`, `discussions` are pure learner/participation and got
-   none), `PermissionsGuard` mounted alongside `JwtAuthGuard`/`RolesGuard`
+4. Outcome: **77 platform routes annotated across 17 controllers**
+   (`lessons` and `chat` are learner/participation surfaces), `PermissionsGuard` mounted alongside `JwtAuthGuard`/`RolesGuard`
    on each annotated controller. No service code changed.
 
 ## 8. Tests
@@ -272,7 +269,7 @@ now discovers upload controllers by scanning for `FileInterceptor` instead
 of a hand-listed set, so the Phase 3 file moves cannot bypass it.
 
 `tests/mixed-route-permissions.test.ts` (3 cases, Phase 4): a fixture maps
-each of the 75 annotated platform routes to its `@RequirePermissions`
+each of the 77 annotated platform routes to its `@RequirePermissions`
 constant; the parser resolves `@Roles` (literals, `Role.*`, and local
 `const` spreads incl. class-level) and asserts **every role that can call an
 annotated route today holds that permission** (§7 no-privilege-cut), that

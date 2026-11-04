@@ -7,7 +7,6 @@ import { Activity, BookOpen, Clock, Compass, GraduationCap, LifeBuoy } from 'luc
 import Link from 'next/link';
 import { StatCard } from '@/app/dashboard/admin/components';
 import StudentAnnouncements from '@/components/StudentAnnouncements';
-import GamificationPanel from '@/components/GamificationPanel';
 import LearningAnalytics from '@/components/LearningAnalytics';
 import LearningPathList from '@/components/LearningPathList';
 import AnnouncementBanner from '@/components/AnnouncementBanner';
@@ -145,20 +144,20 @@ export default function DashboardPage() {
             <div className="space-y-6 animate-fade-in-up">
                 {user.role === 'STUDENT' ? (
                     <>
-                        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                            <StudentAnnouncements />
-                            <GamificationPanel />
-                        </div>
+                        <StudentAnnouncements />
                         <LearningAnalytics />
                         <LearningPathList mode="browse" />
                     </>
                 ) : (
-                    <div className="bg-white dark:bg-brand-navy-dark border border-gray-200 dark:border-white/5 rounded-3xl p-4 sm:p-6 lg:p-8 min-h-[400px] shadow-sm">
-                        <h3 className="text-xl font-black text-brand-navy dark:text-white mb-6">{t('dashboard.recent_activity')}</h3>
-                        <div className="flex items-center justify-center text-gray-500 dark:text-gray-400 h-64 border-2 border-dashed border-gray-300 dark:border-white/10 rounded-2xl bg-gray-100 dark:bg-white/5 font-semibold">
-                            {t('dashboard.detailed_metrics')}
+                    <>
+                        <div className="bg-white dark:bg-brand-navy-dark border border-gray-200 dark:border-white/5 rounded-3xl p-4 sm:p-6 lg:p-8 min-h-[400px] shadow-sm">
+                            <h3 className="text-xl font-black text-brand-navy dark:text-white mb-6">{t('dashboard.recent_activity')}</h3>
+                            <div className="flex items-center justify-center text-gray-500 dark:text-gray-400 h-64 border-2 border-dashed border-gray-300 dark:border-white/10 rounded-2xl bg-gray-100 dark:bg-white/5 font-semibold">
+                                {t('dashboard.detailed_metrics')}
+                            </div>
                         </div>
-                    </div>
+                        {user.role === 'INSTRUCTOR' && <LearningPathList mode="browse" />}
+                    </>
                 )}
             </div>
         </div>

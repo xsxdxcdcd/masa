@@ -335,7 +335,7 @@ describe('classroom link reach', () => {
                 lessonNote: { findMany: () => Promise.resolve([]) },
             };
         }
-        const svc = (p: any) => new LessonsService(p, noop as any);
+        const svc = (p: any) => new LessonsService(p);
         const online = { id: 'o1', deliveryMode: 'ONLINE', meetLink: 'https://meet.google.com/room-1' };
 
         const approved = await svc(lessonsPrisma({ id: 'e1', openingId: 'o1', status: 'APPROVED' }, online))

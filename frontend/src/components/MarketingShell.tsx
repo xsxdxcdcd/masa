@@ -1,6 +1,7 @@
 "use client";
 
 import Link from 'next/link';
+import Image from 'next/image';
 import { ReactNode } from 'react';
 import { useI18n } from '@/lib/i18n-context';
 import { useAuth } from '@/lib/auth-context';
@@ -35,9 +36,12 @@ export default function MarketingShell({ children, title, subtitle }: { children
         <div className={`${dark ? 'bg-brand-navy-dark' : 'bg-white'} min-h-screen flex flex-col`}>
             <header className={`px-4 sm:px-6 lg:px-8 py-4 flex flex-wrap lg:flex-nowrap items-center justify-between gap-x-4 gap-y-3 sticky top-0 z-50 ${dark ? 'bg-brand-navy-dark/85 backdrop-blur-xl border-b border-white/5' : 'glass-panel'}`}>
                 <Link href="/" className="flex items-center">
-                    <img
+                    <Image
                         src={dark ? '/logos/LaxaLab_Academy_Horizontal_Reverse_4K.png' : '/logos/LaxaLab_Academy_Horizontal_Primary_4K.png'}
                         alt="Laxalab Academy Logo"
+                        width={4096}
+                        height={822}
+                        sizes="(max-width: 640px) 50vw, 240px"
                         className="h-9 sm:h-10 lg:h-12 w-auto max-w-[50vw] object-contain transition-transform duration-300 hover:scale-[1.02]"
                     />
                 </Link>
@@ -61,10 +65,8 @@ export default function MarketingShell({ children, title, subtitle }: { children
                         <ThemeToggle />
                         <LanguageSwitcher />
                         {user ? (
-                            <Link href="/dashboard">
-                                <button className={primaryBtnCls}>
-                                    {isAr ? 'لوحة التحكم' : 'Dashboard'}
-                                </button>
+                            <Link href="/dashboard" className={primaryBtnCls}>
+                                {isAr ? 'لوحة التحكم' : 'Dashboard'}
                             </Link>
                         ) : (
                             <>
@@ -73,10 +75,8 @@ export default function MarketingShell({ children, title, subtitle }: { children
                                         {isAr ? 'تسجيل الدخول' : 'Sign in'}
                                     </button>
                                 </Link>
-                                <Link href="/register">
-                                    <button className={primaryBtnCls}>
-                                        {isAr ? 'إنشاء حساب' : 'Register'}
-                                    </button>
+                                <Link href="/register" className={primaryBtnCls}>
+                                    {isAr ? 'إنشاء حساب' : 'Register'}
                                 </Link>
                             </>
                         )}
@@ -98,15 +98,18 @@ export default function MarketingShell({ children, title, subtitle }: { children
             <footer className={`py-12 border-t ${dark ? 'bg-brand-navy border-white/10' : 'bg-white border-gray-200'}`}>
                 <div className="max-w-5xl mx-auto px-6 grid grid-cols-1 md:grid-cols-3 gap-10">
                     <div>
-                        <img
+                        <Image
                             src={dark ? '/logos/LaxaLab_Academy_Stacked_Reverse_4K.png' : '/logos/LaxaLab_Academy_Stacked_Primary_4K.png'}
                             alt="Laxalab Logo"
+                            width={4096}
+                            height={1693}
+                            sizes="200px"
                             className="h-20 w-auto object-contain mb-4"
                         />
                         <p className={`text-sm leading-relaxed ${dark ? 'text-gray-400' : 'text-gray-500'}`}>
                             {isAr
-                                ? 'منصة تعليمية رقمية تجمع بين التميز العربي والعالمي لتقديم دورات عملية بشهادات معتمدة.'
-                                : 'A digital learning platform blending Arabic and global excellence with practical courses and accredited certificates.'}
+                                ? 'منصة تعليمية رقمية تقدم دورات عملية وشهادات قابلة للتحقق.'
+                                : 'A digital learning platform offering practical courses and verifiable certificates.'}
                         </p>
                     </div>
                     <div>
