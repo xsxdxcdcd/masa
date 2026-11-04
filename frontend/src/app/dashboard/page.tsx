@@ -146,7 +146,6 @@ export default function DashboardPage() {
                     <>
                         <StudentAnnouncements />
                         <LearningAnalytics />
-                        <LearningPathList mode="browse" />
                     </>
                 ) : (
                     <>
@@ -156,9 +155,9 @@ export default function DashboardPage() {
                                 {t('dashboard.detailed_metrics')}
                             </div>
                         </div>
-                        {user.role === 'INSTRUCTOR' && <LearningPathList mode="browse" />}
                     </>
                 )}
+                <LearningPathList mode="browse" />
             </div>
         </div>
     );
