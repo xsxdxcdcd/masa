@@ -4,7 +4,6 @@ import { CertificatesService } from './certificates.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { StepUpGuard } from '../auth/guards/step-up.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { PERMISSIONS } from '../auth/permissions/permissions';
@@ -65,7 +64,6 @@ export class CertificatesController {
     @ApiOperation({ summary: 'Revoke a certificate (admin / course manager only)' })
     @Roles(Role.ADMIN, Role.COURSE_MANAGER)
     @RequirePermissions(PERMISSIONS.CERTIFICATES_MANAGE)
-    @UseGuards(StepUpGuard)
     @Post(':id/revoke')
     revoke(@Param('id') id: string, @Request() req: any) {
         return this.certificatesService.revoke(id, req.user.userId, req.user.role);
@@ -74,7 +72,6 @@ export class CertificatesController {
     @ApiOperation({ summary: 'Re-issue a revoked certificate (admin / course manager only)' })
     @Roles(Role.ADMIN, Role.COURSE_MANAGER)
     @RequirePermissions(PERMISSIONS.CERTIFICATES_MANAGE)
-    @UseGuards(StepUpGuard)
     @Post(':id/reissue')
     reissue(@Param('id') id: string, @Request() req: any) {
         return this.certificatesService.reissue(id, req.user.userId, req.user.role);

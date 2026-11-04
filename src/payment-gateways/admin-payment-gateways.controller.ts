@@ -20,7 +20,6 @@ import { PaymentGatewaysService } from './payment-gateways.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { StepUpGuard } from '../auth/guards/step-up.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { PERMISSIONS } from '../auth/permissions/permissions';
@@ -102,7 +101,6 @@ export class AdminPaymentGatewaysController {
     @ApiOperation({ summary: 'Create a payment method' })
     @Roles(Role.ADMIN)
     @RequirePermissions(PERMISSIONS.PAYMENTS_SETTINGS)
-    @UseGuards(StepUpGuard)
     @Post()
     async createGateway(@Body() data: CreatePaymentGatewayDto, @Req() req: any) {
         return this.paymentGatewaysService.createGateway(data, req.user?.id || req.user?.userId);
@@ -111,7 +109,6 @@ export class AdminPaymentGatewaysController {
     @ApiOperation({ summary: 'Update a payment method' })
     @Roles(Role.ADMIN)
     @RequirePermissions(PERMISSIONS.PAYMENTS_SETTINGS)
-    @UseGuards(StepUpGuard)
     @Patch(':id')
     async updateGateway(@Param('id') id: string, @Body() data: UpdatePaymentGatewayDto, @Req() req: any) {
         return this.paymentGatewaysService.updateGateway(id, data, req.user?.id || req.user?.userId);
@@ -120,7 +117,6 @@ export class AdminPaymentGatewaysController {
     @ApiOperation({ summary: 'Delete a payment method' })
     @Roles(Role.ADMIN)
     @RequirePermissions(PERMISSIONS.PAYMENTS_SETTINGS)
-    @UseGuards(StepUpGuard)
     @Delete(':id')
     async deleteGateway(@Param('id') id: string, @Req() req: any) {
         return this.paymentGatewaysService.deleteGateway(id, req.user?.id || req.user?.userId);

@@ -149,27 +149,6 @@ export class AuthService {
             return { requiresPasswordChange: true, tempToken };
         }
 
-        if (user.twoFactorEnabled) {
-            const tempToken = this.jwtService.sign(
-                { sub: user.id, email: user.email, role: user.role, purpose: '2fa' },
-                { expiresIn: '5m' }
-            );
-            return { requiresTwoFactor: true, tempToken };
-        }
-
-        // Admin and finance accounts are on the far side of the privileged
-        // boundary and must secure sign-in with 2FA. Refuse to mint full tokens
-        // for one of them without it, and hand back a short-lived setup
-        // challenge instead -- the 2FA setup endpoints accept it in place of a
-        // session, because a user who never completed the enforcement has none.
-        if (this.isPrivilegedRole(user.role) && !user.twoFactorEnabled) {
-            const tempToken = this.jwtService.sign(
-                { sub: user.id, email: user.email, role: user.role, purpose: '2fa_setup' },
-                { expiresIn: '10m' }
-            );
-            return { requiresTwoFactorSetup: true, tempToken };
-        }
-
         const tokens = await this.issueTokens(user.id, user.email, user.role, user.tokenVersion);
         return { ...tokens, requiresTwoFactor: false, user: this.publicUser(user) };
     }
@@ -497,26 +476,6 @@ export class AuthService {
         }
 
         if (!user.isActive) throw new ForbiddenException('Account is suspended');
-
-        // Privileged roles are held to the same 2FA bar through Google: without
-        // an enrollment, no access token or refresh token is issued. The oauth
-        // callback redirects the browser to the setup challenge (see
-        // AuthController.googleAuthRedirect / the frontend success page).
-        if (this.isPrivilegedRole(user.role) && !user.twoFactorEnabled) {
-            const tempToken = this.jwtService.sign(
-                { sub: user.id, email: user.email, role: user.role, purpose: '2fa_setup' },
-                { expiresIn: '10m' }
-            );
-            return { requiresTwoFactorSetup: true, tempToken };
-        }
-
-        if (user.twoFactorEnabled) {
-            const tempToken = this.jwtService.sign(
-                { sub: user.id, email: user.email, role: user.role, purpose: '2fa' },
-                { expiresIn: '5m' }
-            );
-            return { requiresTwoFactor: true, tempToken };
-        }
 
         const tokens = await this.issueTokens(user.id, user.email, user.role, user.tokenVersion);
         return { ...tokens, requiresTwoFactor: false, user: this.publicUser(user) };

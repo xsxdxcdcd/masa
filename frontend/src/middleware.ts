@@ -36,57 +36,9 @@ function setLocaleCookie(res: NextResponse, locale: Locale) {
     });
 }
 
-// --- Phase 8: origin split (admin console vs learner/instructor app) --------
-// Two deployments of this same app, told apart by env at build time:
-//
-//   APP_MODE = 'learner' (default): serves the platform, refuses the admin
-//     console and the operations center — those pages do not exist on this
-//     origin at all, so an XSS here cannot even load the admin UI's HTML.
-//   APP_MODE = 'admin': serves only the admin console, shared auth pages and
-//     the course-management screens admins genuinely use. Learner-only
-//     sections answer 404 rather than being shared across origins.
-//
-// The API side of the same wall is `src/common/surface-gate.ts` on the
-// backend: admin tokens are only useful against the admin API host.
-const APP_MODE = (process.env.NEXT_PUBLIC_APP_MODE || process.env.APP_MODE || 'learner') === 'admin' ? 'admin' : 'learner';
-
-const ADMIN_ONLY = ['/dashboard/admin', '/operations'];
-
-// Course management is shared work (admins edit courses), so it stays open on
-// both origins. Everything below is learner/instructor work that no admin
-// console flow links into.
-const LEARNER_ONLY_ON_ADMIN = [
-    '/dashboard/my-grades',
-    '/dashboard/explore',
-    '/dashboard/submissions',
-    '/dashboard/tasks',
-    '/dashboard/payments',
-    '/dashboard/refunds',
-    '/dashboard/my-courses',
-    '/dashboard/batch-chats',
-    '/dashboard/teaching',
-    '/dashboard/instructor-profile',
-];
-
-function under(base: string, prefix: string): boolean {
-    return base === prefix || base.startsWith(prefix + '/');
-}
-
-function notFound(): NextResponse {
-    return new NextResponse(
-        '<!doctype html><html lang="en"><meta charset="utf-8"><title>404</title><h1>404 — Not Found</h1></html>',
-        { status: 404, headers: { 'Content-Type': 'text/html; charset=utf-8' } },
-    );
-}
-
-function allowedOnThisOrigin(base: string): boolean {
-    if (APP_MODE === 'admin') {
-        if (base === '/register') return false;
-        return !LEARNER_ONLY_ON_ADMIN.some((p) => under(base, p));
-    }
-    return !ADMIN_ONLY.some((p) => under(base, p));
-}
-
+// The learner, instructor, and administration pages share one origin.
+// Authorization remains enforced by the page guards and the API permission
+// guards after the user signs in.
 export function middleware(req: NextRequest) {
     const { pathname } = req.nextUrl;
 
@@ -99,13 +51,6 @@ export function middleware(req: NextRequest) {
     const hasPrefix = first === 'ar' || first === 'en';
     const base = hasPrefix ? pathname.slice(first.length + 1) || '/' : pathname;
 
-    // The origin split runs on the locale-stripped path so `/ar/...` and
-    // `/en/...` are judged identically, and before the locale redirect so a
-    // refused path never leaks through an extra hop.
-    if (!allowedOnThisOrigin(base)) {
-        return notFound();
-    }
-
     // The internal rewrite from /ar/... to the actual route re-enters
     // middleware. Mark that request so it does not redirect back to /ar/...
     if (req.headers.get(INTERNAL_LOCALE_REWRITE_HEADER) === '1') {
@@ -115,11 +60,7 @@ export function middleware(req: NextRequest) {
     if (hasPrefix) {
         const locale = first as Locale;
         const url = req.nextUrl.clone();
-        // The admin origin's home IS the admin console: the marketing landing
-        // page and the shared dashboard home have no meaning there.
-        url.pathname = APP_MODE === 'admin' && (base === '/' || base === '/dashboard')
-            ? '/dashboard/admin'
-            : base;
+        url.pathname = base;
         const requestHeaders = new Headers(req.headers);
         requestHeaders.set(INTERNAL_LOCALE_REWRITE_HEADER, '1');
         const forwardedCookies = requestHeaders.get('cookie')?.split(';')

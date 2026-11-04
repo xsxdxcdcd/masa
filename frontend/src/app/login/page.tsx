@@ -10,14 +10,6 @@ import { useTheme } from '@/lib/theme-context';
 import LanguageSwitcher from '@/components/LanguageSwitcher';
 import { Home } from 'lucide-react';
 
-// Phase 8 — where each role signs in. Both origins serve this page, but a
-// session minted for the wrong origin is useless there (the API host refuses
-// the other audience), so the hand-off happens here, before anything is stored.
-const APP_MODE = (process.env.NEXT_PUBLIC_APP_MODE || 'learner') === 'admin' ? 'admin' : 'learner';
-const ADMIN_ORIGIN = process.env.NEXT_PUBLIC_ADMIN_ORIGIN || '';
-const LEARNER_ORIGIN = process.env.NEXT_PUBLIC_LEARNER_ORIGIN || '';
-const PRIVILEGED_ROLES = ['ADMIN', 'FINANCE', 'COURSE_MANAGER'];
-
 export default function LoginPage() {
     return (
         <Suspense fallback={<div className="flex h-screen w-full items-center justify-center bg-gray-50 dark:bg-brand-navy-dark dark:text-gray-300 text-gray-600 font-bold">Loading...</div>}>
@@ -36,6 +28,7 @@ function LoginForm() {
     const { dark } = useTheme();
     const searchParams = useSearchParams();
     const redirect = searchParams?.get('redirect') || '/dashboard';
+    const requestedRedirect = searchParams?.get('redirect');
 
     const inputCls = `block w-full px-4 py-3.5 border rounded-xl focus:ring-2 focus:ring-brand-gold focus:border-brand-gold outline-none transition-all duration-200 ${dark ? 'bg-white/5 border-white/10 text-white hover:bg-white/10 [color-scheme:dark]' : 'bg-white border-gray-300 text-brand-charcoal hover:bg-gray-50'}`;
     const labelCls = `block text-sm font-black mb-1.5 ${dark ? 'text-gray-300' : 'text-gray-700'}`;
@@ -46,16 +39,6 @@ function LoginForm() {
             setError('');
             const res = await api.post('/auth/login', { email, password });
             const body = res.data;
-
-            if (body.requiresTwoFactor && body.tempToken) {
-                router.push(`/auth/two-factor?tempToken=${encodeURIComponent(body.tempToken)}&redirect=${encodeURIComponent(redirect)}`);
-                return;
-            }
-
-            if (body.requiresTwoFactorSetup && body.tempToken) {
-                router.push(`/auth/two-factor-setup?tempToken=${encodeURIComponent(body.tempToken)}&redirect=${encodeURIComponent(redirect)}`);
-                return;
-            }
 
             if (body.requiresPasswordChange && body.tempToken) {
                 router.push(`/auth/change-password?tempToken=${encodeURIComponent(body.tempToken)}&redirect=${encodeURIComponent(redirect)}`);
@@ -69,27 +52,18 @@ function LoginForm() {
             const base64Url = token.split('.')[1];
             const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
             const payload = JSON.parse(window.atob(base64));
-            const privileged = PRIVILEGED_ROLES.includes(payload.role);
-
-            if (APP_MODE === 'learner' && privileged && ADMIN_ORIGIN) {
-                // Admin/finance/course-manager on the learner origin: hand the
-                // session over to the admin origin instead of storing a token
-                // this host's API would refuse.
-                window.location.replace(`${ADMIN_ORIGIN}/login?redirect=${encodeURIComponent(redirect)}`);
-                return;
-            }
-            if (APP_MODE === 'admin' && !privileged && LEARNER_ORIGIN) {
-                window.location.replace(`${LEARNER_ORIGIN}/login?redirect=${encodeURIComponent(redirect)}`);
-                return;
-            }
-
             login(token, {
                 userId: payload.sub,
                 email: payload.email,
                 role: payload.role as Role
             }, refreshToken);
 
-            router.push(redirect);
+            const destination = requestedRedirect
+                ? redirect
+                : ['ADMIN', 'FINANCE', 'COURSE_MANAGER'].includes(payload.role)
+                    ? '/dashboard/admin'
+                    : '/dashboard';
+            router.push(destination);
         } catch (err) {
             setError(getErrorMessage(err) || t('auth.login_failed'));
         }
@@ -171,14 +145,12 @@ function LoginForm() {
                 </form>
 
                 <div className="mt-8 text-center space-y-3">
-                    {APP_MODE !== 'admin' && (
                     <p className={`text-sm font-semibold ${dark ? 'text-gray-400' : 'text-gray-600'}`}>
                         {t('auth.dont_have_account')}{' '}
                         <a href="/register" className={`font-black transition-colors ${dark ? 'text-brand-gold-light hover:text-brand-gold' : 'text-brand-gold-dark hover:text-brand-gold'}`}>
                             {t('auth.register_now')}
                         </a>
                     </p>
-                )}
                     <p className="text-sm">
                         <a href="/forgot-password" className={`flex items-center justify-center font-bold transition-colors ${dark ? 'text-brand-gold hover:text-brand-gold-light' : 'text-brand-gold-dark hover:text-brand-gold'}`}>
                             {t('recovery.forgotLink')}

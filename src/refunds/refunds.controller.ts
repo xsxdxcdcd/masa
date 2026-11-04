@@ -4,7 +4,6 @@ import { RefundsService } from './refunds.service';
 import { JwtAuthGuard } from '../auth/guards/jwt-auth.guard';
 import { RolesGuard } from '../auth/guards/roles.guard';
 import { PermissionsGuard } from '../auth/guards/permissions.guard';
-import { StepUpGuard } from '../auth/guards/step-up.guard';
 import { Roles } from '../auth/decorators/roles.decorator';
 import { RequirePermissions } from '../auth/decorators/permissions.decorator';
 import { PERMISSIONS } from '../auth/permissions/permissions';
@@ -50,7 +49,6 @@ export class RefundsController {
     @ApiOperation({ summary: 'Approve or reject a refund request (finance/admin)' })
     @Roles(Role.FINANCE, Role.ADMIN)
     @RequirePermissions(PERMISSIONS.REFUNDS_REVIEW)
-    @UseGuards(StepUpGuard)
     @Patch(':id')
     review(@Param('id') id: string, @Body() dto: ReviewRefundRequestDto, @Request() req: any) {
         return this.refunds.review(id, req.user.userId, req.user.role, dto);

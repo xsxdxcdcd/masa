@@ -29,7 +29,7 @@ export class AuthController {
         return this.authService.register(registerDto);
     }
 
-    @ApiOperation({ summary: 'Login user and return JWT (returns two-factor challenge when enabled)' })
+    @ApiOperation({ summary: 'Login user and return JWT' })
     @ApiResponse({ status: 200, description: 'User successfully logged in.' })
     @ApiResponse({ status: 401, description: 'Invalid credentials.' })
     @HttpCode(HttpStatus.OK)
@@ -151,15 +151,6 @@ export class AuthController {
         if ('access_token' in result) {
             return res.redirect(
                 `${frontendUrl}/auth/success#token=${encodeURIComponent(result.access_token)}&refresh=${encodeURIComponent(result.refresh_token)}`
-            );
-        }
-        if ('requiresTwoFactor' in result && result.requiresTwoFactor) {
-            return res.redirect(`${frontendUrl}/auth/success#twoFactor=1&tempToken=${encodeURIComponent(result.tempToken)}`);
-        }
-        // Privileged roles must enroll in 2FA even when they arrive via Google.
-        if ('requiresTwoFactorSetup' in result && result.requiresTwoFactorSetup) {
-            return res.redirect(
-                `${frontendUrl}/auth/success#twoFactorSetup=1&tempToken=${encodeURIComponent(result.tempToken)}`
             );
         }
         // Google-created accounts have no password, so a forced password change

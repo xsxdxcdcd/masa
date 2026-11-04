@@ -19,20 +19,8 @@ function SuccessHandler() {
         const hash = window.location.hash.slice(1);
         const params = new URLSearchParams(hash);
 
-        const twoFactor = params.get('twoFactor');
-        const tempToken = params.get('tempToken');
         const token = params.get('token');
         const refresh = params.get('refresh');
-
-        if (twoFactor === '1' && tempToken) {
-            router.push(`/auth/two-factor?tempToken=${encodeURIComponent(tempToken)}`);
-            return;
-        }
-
-        if (params.get('twoFactorSetup') === '1' && tempToken) {
-            router.push(`/auth/two-factor-setup?tempToken=${encodeURIComponent(tempToken)}`);
-            return;
-        }
 
         if (token) {
             try {
@@ -46,7 +34,7 @@ function SuccessHandler() {
                     role: payload.role as Role
                 }, refresh || undefined);
 
-                router.push('/dashboard');
+                router.push(['ADMIN', 'FINANCE', 'COURSE_MANAGER'].includes(payload.role) ? '/dashboard/admin' : '/dashboard');
             } catch (err) {
                 console.error('Failed to parse token', err);
                 router.push('/login');
