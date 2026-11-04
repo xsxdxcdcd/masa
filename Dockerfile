@@ -3,7 +3,10 @@ FROM node:20-alpine AS builder
 
 WORKDIR /usr/src/app
 
-ENV NODE_OPTIONS="--max-old-space-size=400"
+# Render's Docker builder has more memory available than the default Node
+# ceiling. The NestJS compilation can exceed 400 MB, which otherwise causes
+# the container build to abort with an out-of-memory error.
+ENV NODE_OPTIONS="--max-old-space-size=1024"
 
 # Build-time placeholder so @prisma/client postinstall + generate succeed.
 # Runtime env vars from Railway OVERRIDE this; generate never connects to the DB.
@@ -11,6 +14,9 @@ ENV DATABASE_URL="postgresql://user:pass@localhost:5432/db"
 
 COPY package*.json ./
 COPY prisma ./prisma/
+
+# Prisma's Alpine engine detection needs OpenSSL available during generation.
+RUN apk add --no-cache openssl libc6-compat
 
 # Install dependencies
 RUN npm ci
